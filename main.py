@@ -10,7 +10,13 @@ from google import genai
 import uvicorn
 
 # Initialize Firebase Admin SDK
+# CHANGE THIS:
 cred = credentials.Certificate("./service-account.json")
+
+# TO THIS:
+base_dir = os.path.dirname(os.path.abspath(__file__))
+cred_path = os.path.join(base_dir, "service-account.json")
+cred = credentials.Certificate(cred_path)
 firebase_admin.initialize_app(cred)
 db = firestore_async.client()
 
