@@ -7,9 +7,10 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore_async
 from pydantic import BaseModel
 from google import genai
+import uvicorn
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate("service-account.json")
+cred = credentials.Certificate("./service-account.json")
 firebase_admin.initialize_app(cred)
 db = firestore_async.client()
 
@@ -20,7 +21,7 @@ app = FastAPI(title="Nexus RPG API Matrix")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -210,7 +211,7 @@ async def process_study_module(
         "rewards": {"xp": xp_gained, "coins": coins_gained},
         "updated_player": player_data
     }
-# 🚀 NEW REAL-TIME GLOBAL LEADERBOARD ROUTE
+
 @app.get("/api/leaderboard")
 async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)]):
     """
@@ -218,7 +219,6 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
     ordered sequentially by Level and Experience.
     """
     try:
-        # Query firestore collection ordered descending by operational level, then xp
         leaderboard_query = (
             db.collection("users")
             .order_by("level", direction="DESCENDING")
@@ -231,7 +231,6 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
         
         for index, doc in enumerate(docs):
             data = doc.to_dict()
-            # Construct a safe sanitized public profile map
             rankings.append({
                 "rank": index + 1,
                 "agent_name": data.get("agent_name", "Unknown Operator"),
@@ -245,9 +244,10 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
     except Exception as e:
         print(f"Leaderboard extraction matrix failure: {e}")
         raise HTTPException(status_code=500, detail="Failed to query network scoreboard records.")
-# 🛒 NEW PURCHASE SCHEMAS
+
+# 🛒 STORE SCHEMAS
 class EnergyPurchaseSchema(BaseModel):
-    pack_id: str  # e.g., "pack_small", "pack_large"
+    pack_id: str
 
 # 🚀 PREMIUM STORE ENDPOINTS
 
@@ -256,10 +256,6 @@ async def purchase_energy_pack(
     payload: EnergyPurchaseSchema,
     user: Annotated[dict, Depends(get_current_user)]
 ):
-    """
-    Simulates a secure checkout transaction for consumable energy packs.
-    Increments energy value up to a maximum cap of 100.
-    """
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     doc_snap = await doc_ref.get()
@@ -287,13 +283,8 @@ async def purchase_energy_pack(
         "updated_player": player_data
     }
 
-
 @app.post("/api/store/buy-premium")
 async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]):
-    """
-    Simulates a secure subscription/entitlement checkout for the Unlimited Premium License.
-    Sets 'isPremium' to True and locks energy values to max capacity.
-    """
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     doc_snap = await doc_ref.get()
@@ -312,29 +303,9 @@ async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]
     return {
         "message": "💥 Network access upgraded to Premium! Charged INR 249. Infinite operation energy unlocked.",
         "updated_player": player_data
-    }@app.post("/api/store/buy-premium")
-async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]):
-    """
-    Simulates a secure subscription/entitlement checkout for the Unlimited Premium License.
-    Sets 'isPremium' to True and locks energy values to max capacity.
-    """
-    uid = user["uid"]
-    doc_ref = db.collection("users").document(uid)
-    doc_snap = await doc_ref.get()
-    
-    if not doc_snap.exists:
-        raise HTTPException(status_code=404, detail="Player data stream missing.")
-    player_data = doc_snap.to_dict()
-
-    if player_data.get("isPremium", False):
-        return {"message": "License layer already active.", "updated_player": player_data}
-
-    # Unlock unlimited access parameters
-    player_data["isPremium"] = True
-    player_data["energy"] = 100  # Instantly top-up to full capacity
-
-    await doc_ref.set(player_data, merge=True)
-    return {
-        "message": "💥 Network access upgraded to Premium! Charged INR 249. Infinite operation energy unlocked.",
-        "updated_player": player_data
     }
+
+# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
