@@ -328,3 +328,99 @@ async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
+# 🛒 NEW SOCIAL SCHEMAS
+class FriendRequestSchema(BaseModel):
+    target_agent_name: str  # Players add each other by their unique Agent Name
+
+# 🚀 SOCIAL UPLINK ENDPOINTS
+
+@app.post("/api/social/request")
+async def send_friend_request(
+    payload: FriendRequestSchema, 
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    """
+    Sends a friend request by looking up a target player's agent_name.
+    """
+    sender_uid = user["uid"]
+    target_name = payload.target_agent_name.strip()
+
+    # 1. Find the target user by agent_name
+    users_ref = db.collection("users")
+    query = users_ref.where("agent_name", "==", target_name).limit(1)
+    target_docs = await query.get()
+
+    if not target_docs:
+        raise HTTPException(status_code=404, detail="Target Agent not found in the network matrix.")
+    
+    target_uid = target_docs[0].id
+    if sender_uid == target_uid:
+        raise HTTPException(status_code=400, detail="Cannot establish an uplink with your own node.")
+
+    # Get sender's profile data to pass along name/avatar
+    sender_doc = await users_ref.document(sender_uid).get()
+    sender_data = sender_doc.to_dict()
+
+    # 2. Write into target user's incoming friends subcollection as "pending"
+    await users_ref.document(target_uid).collection("friends").document(sender_uid).set({
+        "uid": sender_uid,
+        "agent_name": sender_data.get("agent_name", "Unknown Operator"),
+        "avatar_icon": sender_data.get("avatar_icon", "fa-user-ninja"),
+        "theme_color": sender_data.get("theme_color", "#00f0ff"),
+        "status": "pending_incoming"
+    })
+
+    # 3. Write into sender's subcollection as "outgoing"
+    await users_ref.document(sender_uid).collection("friends").document(target_uid).set({
+        "uid": target_uid,
+        "agent_name": target_name,
+        "avatar_icon": target_docs[0].to_dict().get("avatar_icon", "fa-user-ninja"),
+        "theme_color": target_docs[0].to_dict().get("theme_color", "#00f0ff"),
+        "status": "pending_outgoing"
+    })
+
+    return {"message": f"Uplink request transmitted to {target_name}."}
+
+
+@app.post("/api/social/accept")
+async def accept_friend_request(
+    payload: FriendRequestSchema, 
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    """
+    Accepts a pending friend request, updating status to 'connected' for both.
+    """
+    current_uid = user["uid"]
+    target_name = payload.target_agent_name.strip()
+
+    # Find target UID via name
+    users_ref = db.collection("users")
+    query = users_ref.where("agent_name", "==", target_name).limit(1)
+    target_docs = await query.get()
+
+    if not target_docs:
+        raise HTTPException(status_code=404, detail="Target Agent lost to the network.")
+    
+    target_uid = target_docs[0].id
+
+    # Update both subcollection documents to 'connected'
+    await users_ref.document(current_uid).collection("friends").document(target_uid).update({"status": "connected"})
+    await users_ref.document(target_uid).collection("friends").document(current_uid).update({"status": "connected"})
+
+    return {"message": f"Social matrix bridge established with {target_name}!"}
+
+
+@app.get("/api/social/list")
+async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
+    """
+    Retrieves all network connections (pending and connected).
+    """
+    uid = user["uid"]
+    friends_ref = db.collection("users").document(uid).collection("friends")
+    docs = await friends_ref.get()
+
+    connections = []
+    for doc in docs:
+        connections.append(doc.to_dict())
+    return connections
