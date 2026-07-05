@@ -11,7 +11,20 @@ import uvicorn
 
 # Initialize Firebase Admin SDK
 # CHANGE THIS:
-cred = credentials.Certificate("./service-account.json")
+# 🔍 Smart Multi-Layer Path Locator for Production Deployment
+base_dir = os.path.dirname(os.path.abspath(__file__))
+local_path = os.path.join(base_dir, "service-account.json")
+root_fallback_path = os.path.join(base_dir, "..", "service-account.json")
+
+if os.path.exists(local_path):
+    cred_path = local_path
+elif os.path.exists(root_fallback_path):
+    cred_path = root_fallback_path
+else:
+    # If both fail, let's look directly in the working directory execution root
+    cred_path = "service-account.json"
+
+cred = credentials.Certificate(cred_path)
 
 # TO THIS:
 base_dir = os.path.dirname(os.path.abspath(__file__))
