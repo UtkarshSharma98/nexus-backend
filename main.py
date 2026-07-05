@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from google import genai
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate("./service-account.json")
+cred = credentials.Certificate("service-account.json")
 firebase_admin.initialize_app(cred)
 db = firestore_async.client()
 
