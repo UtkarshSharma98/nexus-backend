@@ -294,8 +294,12 @@ async def purchase_energy_pack(
         "updated_player": player_data
     }
 
-@app.post("/api/store/buy-premium")
-async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]):
+# 🔋 REAL PAYMENT ENERGY FULFILLMENT
+@app.post("/api/store/buy-energy")
+async def purchase_energy_pack(
+    payload: EnergyPurchaseSchema,
+    user: Annotated[dict, Depends(get_current_user)]
+):
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     doc_snap = await doc_ref.get()
@@ -305,14 +309,23 @@ async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]
     player_data = doc_snap.to_dict()
 
     if player_data.get("isPremium", False):
-        return {"message": "License layer already active.", "updated_player": player_data}
+        return {"message": "Infinite matrix energy active. Consumables redundant.", "updated_player": player_data}
 
-    player_data["isPremium"] = True
-    player_data["energy"] = 100
+    # Map the new item IDs to their energy reward amounts
+    if payload.pack_id == "energy_pack_50":
+        energy_amount = 50
+    elif payload.pack_id == "energy_pack_100":
+        energy_amount = 100
+    else:
+        raise HTTPException(status_code=400, detail="Invalid energy pack classification ID.")
+
+    current_energy = player_data.get("energy", 100)
+    # Refill energy (capping at 100 max capacity, or remove min() if they can accumulate extra!)
+    player_data["energy"] = min(current_energy + energy_amount, 100)
 
     await doc_ref.set(player_data, merge=True)
     return {
-        "message": "💥 Network access upgraded to Premium! Charged INR 249. Infinite operation energy unlocked.",
+        "message": f"Payment Verified! Added {energy_amount} Energy to your profile matrix.",
         "updated_player": player_data
     }
 
@@ -402,7 +415,8 @@ async def create_order(
     
     price_matrix = {
         "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹249
-        "coin_pack_50": {"amount": 9900, "name": "50 Nexus Data Coins"}     # ₹99
+        "energy_pack_100": {"amount": 9900, "name": "100 Matrix Energy Pack"},
+        "energy_pack_50": {"amount": 4900, "name": "50 Matrix Energy Pack"}     
     }
 
     if item not in price_matrix:
