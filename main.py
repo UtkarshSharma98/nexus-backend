@@ -242,11 +242,12 @@ async def process_study_module(
     except Exception as gemini_err:
         print(f"Gemini processing failure: {gemini_err}")
         raise HTTPException(status_code=502, detail="AI interpretation layer timed out.")
+    # Calculate streak reward modifiers (5% per streak tier, capped at 50%)
     streak_tier = player_data.get("streak", 1)
     multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
 
-    xp_gained = 150
-    coins_gained = 25
+    xp_gained = int((calculated_score * 2) * multiplier)
+    coins_gained = int((calculated_score / 2) * multiplier)
     
     new_xp = player_data.get("xp", 0) + xp_gained
     next_level_threshold = player_data.get("level", 1) * 1000
