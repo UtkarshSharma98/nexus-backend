@@ -45,6 +45,7 @@ class PlayerStatsSchema(BaseModel):
     agent_name: str = "Unknown Agent"
     avatar_icon: str = "fa-user-ninja"
     theme_color: str = "#00f0ff"
+    last_login: str = ""
 
 class CombatActionSchema(BaseModel):
     enemy_name: str
@@ -89,25 +90,55 @@ async def get_current_user(
 async def health_check():
     return {"status": "online", "system": "Nexus Core"}
 
+from datetime import datetime, timezone
+
 @app.get("/api/player", response_model=PlayerStatsSchema)
 async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     doc_snap = await doc_ref.get()
     
+    current_time_str = datetime.now(timezone.utc).isoformat()
+    
     if doc_snap.exists:
-        return doc_snap.to_dict()
+        player_data = doc_snap.to_dict()
+        last_login_str = player_data.get("last_login", "")
+        current_streak = player_data.get("streak", 1)
+        
+        if last_login_str:
+            try:
+                last_login = datetime.fromisoformat(last_login_str)
+                now = datetime.now(timezone.utc)
+                hours_passed = (now - last_login).total_seconds() / 3600
+                
+                # 🕒 Case A: Over 48 hours missed? Streak breaks.
+                if hours_passed >= 48:
+                    current_streak = 1
+                # 🚀 Case B: Between 24 and 48 hours? Streak increments!
+                elif 24 <= hours_passed < 48:
+                    current_streak += 1
+                # Case C: Under 24 hours? Keep streak exactly the same.
+            except Exception as time_err:
+                print(f"Time validation error: {time_err}")
+        
+        # Sync calculated updates back to local object
+        player_data["streak"] = current_streak
+        player_data["last_login"] = current_time_str
+        
+        await doc_ref.set(player_data, merge=True)
+        return player_data
     else:
+        # Initial onboarding profile defaults
         default_stats = {
             "xp": 0, "level": 1, "coins": 0, "gems": 0, "energy": 100, 
             "isPremium": False, "streak": 1,
             "agent_name": "Recruit Agent",
             "avatar_icon": "fa-user-ninja",
-            "theme_color": "#00f0ff"
+            "theme_color": "#00f0ff",
+            "last_login": current_time_str
         }
         await doc_ref.set(default_stats)
         return default_stats
-
 @app.post("/api/player/sync")
 async def sync_player_stats(stats: PlayerStatsSchema, user: Annotated[dict, Depends(get_current_user)]):
     uid = user["uid"]
@@ -156,6 +187,9 @@ async def process_combat_encounter(
         except ValueError:
             pass
 
+    streak_tier = player_data.get("streak", 1)
+    multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
+    
     xp_gained = int(calculated_score * 2)
     coins_gained = int(calculated_score / 2)
     
@@ -208,6 +242,8 @@ async def process_study_module(
     except Exception as gemini_err:
         print(f"Gemini processing failure: {gemini_err}")
         raise HTTPException(status_code=502, detail="AI interpretation layer timed out.")
+    streak_tier = player_data.get("streak", 1)
+    multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
 
     xp_gained = 150
     coins_gained = 25
