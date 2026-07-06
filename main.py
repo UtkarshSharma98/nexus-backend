@@ -62,8 +62,7 @@ class FriendRequestSchema(BaseModel):
 class PurchaseSchema(BaseModel):
     item_id: str
 
-# 🔑 RAZORPAY ENVIRONMENT VARIABLE HANDSHAKE (FIXED SYNTAX)
-# Your private production keys must live securely in your Render dashboard environment panel!
+# 🔑 RAZORPAY ENVIRONMENT VARIABLE HANDSHAKE
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_placeholder")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "mock_secret_placeholder")
 
@@ -260,41 +259,7 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
         print(f"Leaderboard extraction matrix failure: {e}")
         raise HTTPException(status_code=500, detail="Failed to query network scoreboard records.")
 
-# 🚀 PREMIUM STORE ENDPOINTS
-
-@app.post("/api/store/buy-energy")
-async def purchase_energy_pack(
-    payload: EnergyPurchaseSchema,
-    user: Annotated[dict, Depends(get_current_user)]
-):
-    uid = user["uid"]
-    doc_ref = db.collection("users").document(uid)
-    doc_snap = await doc_ref.get()
-    
-    if not doc_snap.exists:
-        raise HTTPException(status_code=404, detail="Player data stream missing.")
-    player_data = doc_snap.to_dict()
-
-    if payload.pack_id == "pack_small":
-        energy_amount = 25
-    elif payload.pack_id == "pack_large":
-        energy_amount = 100
-    else:
-        raise HTTPException(status_code=400, detail="Invalid product classification pack ID.")
-
-    if player_data.get("isPremium", False):
-        return {"message": "Infinite matrix energy active. Consumables redundant.", "updated_player": player_data}
-
-    current_energy = player_data.get("energy", 100)
-    player_data["energy"] = min(current_energy + energy_amount, 100)
-
-    await doc_ref.set(player_data, merge=True)
-    return {
-        "message": f"Successfully processed transaction. Charged INR via simulated node pipeline. Added {energy_amount} Energy.",
-        "updated_player": player_data
-    }
-
-# 🔋 REAL PAYMENT ENERGY FULFILLMENT
+# 🔋 REAL PAYMENT ENERGY FULFILLMENT INTERFACE (CLEANED)
 @app.post("/api/store/buy-energy")
 async def purchase_energy_pack(
     payload: EnergyPurchaseSchema,
@@ -311,7 +276,7 @@ async def purchase_energy_pack(
     if player_data.get("isPremium", False):
         return {"message": "Infinite matrix energy active. Consumables redundant.", "updated_player": player_data}
 
-    # Map the new item IDs to their energy reward amounts
+    # Map the current item IDs to their energy reward amounts
     if payload.pack_id == "energy_pack_50":
         energy_amount = 50
     elif payload.pack_id == "energy_pack_100":
@@ -320,13 +285,28 @@ async def purchase_energy_pack(
         raise HTTPException(status_code=400, detail="Invalid energy pack classification ID.")
 
     current_energy = player_data.get("energy", 100)
-    # Refill energy (capping at 100 max capacity, or remove min() if they can accumulate extra!)
     player_data["energy"] = min(current_energy + energy_amount, 100)
 
     await doc_ref.set(player_data, merge=True)
     return {
         "message": f"Payment Verified! Added {energy_amount} Energy to your profile matrix.",
         "updated_player": player_data
+    }
+
+# 👑 RE-ADDED REAL PREMIUM LICENSE FULFILLMENT ROUTE
+@app.post("/api/store/activate-premium")
+async def activate_premium_license(
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    
+    # Write the premium status parameter permanently into firestore
+    await doc_ref.set({"isPremium": True}, merge=True)
+    
+    return {
+        "status": "success",
+        "message": "Premium status permanent override synchronized successfully."
     }
 
 # 🚀 SOCIAL UPLINK ENDPOINTS
@@ -404,7 +384,7 @@ async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
         connections.append(doc.to_dict())
     return connections
 
-# 🚀 BILLING RAZORPAY GATEWAY INTERFACE (FIXED IMPLEMENTATION)
+# 🚀 BILLING RAZORPAY GATEWAY INTERFACE
 
 @app.post("/api/billing/create-order")
 async def create_order(
@@ -415,8 +395,8 @@ async def create_order(
     
     price_matrix = {
         "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹249
-        "energy_pack_100": {"amount": 9900, "name": "100 Matrix Energy Pack"},
-        "energy_pack_50": {"amount": 4900, "name": "50 Matrix Energy Pack"}     
+        "energy_pack_100": {"amount": 9900, "name": "100 Matrix Energy Pack"}, # ₹99
+        "energy_pack_50": {"amount": 4900, "name": "50 Matrix Energy Pack"}     # ₹49
     }
 
     if item not in price_matrix:
@@ -445,7 +425,7 @@ async def create_order(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER (MOVED TO BOTTOM EXCLUSIVELY)
+# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
