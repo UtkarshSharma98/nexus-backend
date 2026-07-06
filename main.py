@@ -8,25 +8,9 @@ from firebase_admin import credentials, auth, firestore_async
 from pydantic import BaseModel
 from google import genai
 import uvicorn
+import razorpay
 
 # Initialize Firebase Admin SDK
-# CHANGE THIS:
-# 🔍 Smart Multi-Layer Path Locator for Production Deployment
-base_dir = os.path.dirname(os.path.abspath(__file__))
-local_path = os.path.join(base_dir, "service-account.json")
-root_fallback_path = os.path.join(base_dir, "..", "service-account.json")
-
-if os.path.exists(local_path):
-    cred_path = local_path
-elif os.path.exists(root_fallback_path):
-    cred_path = root_fallback_path
-else:
-    # If both fail, let's look directly in the working directory execution root
-    cred_path = "service-account.json"
-
-cred = credentials.Certificate(cred_path)
-
-# TO THIS:
 base_dir = os.path.dirname(os.path.abspath(__file__))
 cred_path = os.path.join(base_dir, "service-account.json")
 cred = credentials.Certificate(cred_path)
@@ -68,6 +52,22 @@ class CombatActionSchema(BaseModel):
 
 class StudyTopicSchema(BaseModel):
     topic: str
+
+class EnergyPurchaseSchema(BaseModel):
+    pack_id: str
+
+class FriendRequestSchema(BaseModel):
+    target_agent_name: str  
+
+class PurchaseSchema(BaseModel):
+    item_id: str
+
+# 🔑 RAZORPAY ENVIRONMENT VARIABLE HANDSHAKE (FIXED SYNTAX)
+# Your private production keys must live securely in your Render dashboard environment panel!
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_placeholder")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "mock_secret_placeholder")
+
+client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
 # --- DEPENDENCIES ---
 
@@ -233,10 +233,6 @@ async def process_study_module(
 
 @app.get("/api/leaderboard")
 async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)]):
-    """
-    Fetches the top 10 ranking agents across the network, 
-    ordered sequentially by Level and Experience.
-    """
     try:
         leaderboard_query = (
             db.collection("users")
@@ -263,10 +259,6 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
     except Exception as e:
         print(f"Leaderboard extraction matrix failure: {e}")
         raise HTTPException(status_code=500, detail="Failed to query network scoreboard records.")
-
-# 🛒 STORE SCHEMAS
-class EnergyPurchaseSchema(BaseModel):
-    pack_id: str
 
 # 🚀 PREMIUM STORE ENDPOINTS
 
@@ -324,15 +316,6 @@ async def purchase_premium_tier(user: Annotated[dict, Depends(get_current_user)]
         "updated_player": player_data
     }
 
-# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
-
-# 🛒 NEW SOCIAL SCHEMAS
-class FriendRequestSchema(BaseModel):
-    target_agent_name: str  # Players add each other by their unique Agent Name
-
 # 🚀 SOCIAL UPLINK ENDPOINTS
 
 @app.post("/api/social/request")
@@ -340,13 +323,9 @@ async def send_friend_request(
     payload: FriendRequestSchema, 
     user: Annotated[dict, Depends(get_current_user)]
 ):
-    """
-    Sends a friend request by looking up a target player's agent_name.
-    """
     sender_uid = user["uid"]
     target_name = payload.target_agent_name.strip()
 
-    # 1. Find the target user by agent_name
     users_ref = db.collection("users")
     query = users_ref.where("agent_name", "==", target_name).limit(1)
     target_docs = await query.get()
@@ -358,11 +337,9 @@ async def send_friend_request(
     if sender_uid == target_uid:
         raise HTTPException(status_code=400, detail="Cannot establish an uplink with your own node.")
 
-    # Get sender's profile data to pass along name/avatar
     sender_doc = await users_ref.document(sender_uid).get()
     sender_data = sender_doc.to_dict()
 
-    # 2. Write into target user's incoming friends subcollection as "pending"
     await users_ref.document(target_uid).collection("friends").document(sender_uid).set({
         "uid": sender_uid,
         "agent_name": sender_data.get("agent_name", "Unknown Operator"),
@@ -371,7 +348,6 @@ async def send_friend_request(
         "status": "pending_incoming"
     })
 
-    # 3. Write into sender's subcollection as "outgoing"
     await users_ref.document(sender_uid).collection("friends").document(target_uid).set({
         "uid": target_uid,
         "agent_name": target_name,
@@ -382,19 +358,14 @@ async def send_friend_request(
 
     return {"message": f"Uplink request transmitted to {target_name}."}
 
-
 @app.post("/api/social/accept")
 async def accept_friend_request(
     payload: FriendRequestSchema, 
     user: Annotated[dict, Depends(get_current_user)]
 ):
-    """
-    Accepts a pending friend request, updating status to 'connected' for both.
-    """
     current_uid = user["uid"]
     target_name = payload.target_agent_name.strip()
 
-    # Find target UID via name
     users_ref = db.collection("users")
     query = users_ref.where("agent_name", "==", target_name).limit(1)
     target_docs = await query.get()
@@ -404,18 +375,13 @@ async def accept_friend_request(
     
     target_uid = target_docs[0].id
 
-    # Update both subcollection documents to 'connected'
     await users_ref.document(current_uid).collection("friends").document(target_uid).update({"status": "connected"})
     await users_ref.document(target_uid).collection("friends").document(current_uid).update({"status": "connected"})
 
     return {"message": f"Social matrix bridge established with {target_name}!"}
 
-
 @app.get("/api/social/list")
 async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
-    """
-    Retrieves all network connections (pending and connected).
-    """
     uid = user["uid"]
     friends_ref = db.collection("users").document(uid).collection("friends")
     docs = await friends_ref.get()
@@ -425,40 +391,24 @@ async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
         connections.append(doc.to_dict())
     return connections
 
-import razorpay
-from fastapi import HTTPException, Depends
-from pydantic import BaseModel
-
-# 🔑 Initialize Razorpay with your Test Key ID and Secret from the Razorpay Dashboard
-RAZORPAY_KEY_ID = os.getenv("rzp_test_TA6QY3ptxZ3HRY", "rzp_test_placeholder")
-RAZORPAY_KEY_SECRET = os.getenv("H9DAVyLY2BecD5pOcf5H6c76", "mock_secret_placeholder")
-
-client = razorpay.Client(auth=(rzp_test_TA6QY3ptxZ3HRY, H9DAVyLY2BecD5pOcf5H6c76))
-
-class PurchaseSchema(BaseModel):
-    item_id: str
+# 🚀 BILLING RAZORPAY GATEWAY INTERFACE (FIXED IMPLEMENTATION)
 
 @app.post("/api/billing/create-order")
 async def create_order(
     payload: PurchaseSchema, 
     user: Annotated[dict, Depends(get_current_user)]
 ):
-    """
-    Generates a secure Razorpay Order for the player.
-    """
     item = payload.item_id
     
-    # Prices in Paise (1 INR = 100 Paise)
     price_matrix = {
-        "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹399
-        "coin_pack_50": {"amount": 9900, "name": "50 Nexus Data Coins"}     # ₹149
+        "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹249
+        "coin_pack_50": {"amount": 9900, "name": "50 Nexus Data Coins"}     # ₹99
     }
 
     if item not in price_matrix:
         raise HTTPException(status_code=400, detail="Invalid item ID catalog entry.")
 
     try:
-        # Create a payment order object inside Razorpay systems
         order_data = {
             "amount": price_matrix[item]["amount"],
             "currency": "INR",
@@ -475,8 +425,13 @@ async def create_order(
             "order_id": razorpay_order["id"],
             "amount": razorpay_order["amount"],
             "currency": razorpay_order["currency"],
-            "key_id": rzp_test_TA6QY3ptxZ3HRY,
+            "key_id": RAZORPAY_KEY_ID,
             "product_name": price_matrix[item]["name"]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER (MOVED TO BOTTOM EXCLUSIVELY)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
