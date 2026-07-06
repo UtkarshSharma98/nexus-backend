@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from google import genai
 import uvicorn
 import razorpay
+from datetime import datetime, timezone
 
 # Initialize Firebase Admin SDK
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -90,7 +91,6 @@ async def get_current_user(
 async def health_check():
     return {"status": "online", "system": "Nexus Core"}
 
-from datetime import datetime, timezone
 
 @app.get("/api/player", response_model=PlayerStatsSchema)
 async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
@@ -139,6 +139,7 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
         }
         await doc_ref.set(default_stats)
         return default_stats
+
 @app.post("/api/player/sync")
 async def sync_player_stats(stats: PlayerStatsSchema, user: Annotated[dict, Depends(get_current_user)]):
     uid = user["uid"]
@@ -187,6 +188,7 @@ async def process_combat_encounter(
         except ValueError:
             pass
 
+    # Calculate streak reward modifiers (5% per streak tier, capped at 50%)
     streak_tier = player_data.get("streak", 1)
     multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
     
@@ -242,12 +244,16 @@ async def process_study_module(
     except Exception as gemini_err:
         print(f"Gemini processing failure: {gemini_err}")
         raise HTTPException(status_code=502, detail="AI interpretation layer timed out.")
+
+    # Base study score threshold replacement for metrics calculations
+    base_study_score = 80
+
     # Calculate streak reward modifiers (5% per streak tier, capped at 50%)
     streak_tier = player_data.get("streak", 1)
     multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
 
-    xp_gained = int((calculated_score * 2) * multiplier)
-    coins_gained = int((calculated_score / 2) * multiplier)
+    xp_gained = int((base_study_score * 2) * multiplier)
+    coins_gained = int((base_study_score / 2) * multiplier)
     
     new_xp = player_data.get("xp", 0) + xp_gained
     next_level_threshold = player_data.get("level", 1) * 1000
@@ -296,7 +302,7 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
         print(f"Leaderboard extraction matrix failure: {e}")
         raise HTTPException(status_code=500, detail="Failed to query network scoreboard records.")
 
-# 🔋 REAL PAYMENT ENERGY FULFILLMENT INTERFACE (CLEANED)
+# 🔋 REAL PAYMENT ENERGY FULFILLMENT INTERFACE
 @app.post("/api/store/buy-energy")
 async def purchase_energy_pack(
     payload: EnergyPurchaseSchema,
@@ -313,7 +319,6 @@ async def purchase_energy_pack(
     if player_data.get("isPremium", False):
         return {"message": "Infinite matrix energy active. Consumables redundant.", "updated_player": player_data}
 
-    # Map the current item IDs to their energy reward amounts
     if payload.pack_id == "energy_pack_50":
         energy_amount = 50
     elif payload.pack_id == "energy_pack_100":
@@ -330,7 +335,7 @@ async def purchase_energy_pack(
         "updated_player": player_data
     }
 
-# 👑 RE-ADDED REAL PREMIUM LICENSE FULFILLMENT ROUTE
+# 👑 PREMIUM LICENSE FULFILLMENT ROUTE
 @app.post("/api/store/activate-premium")
 async def activate_premium_license(
     user: Annotated[dict, Depends(get_current_user)]
@@ -338,7 +343,6 @@ async def activate_premium_license(
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     
-    # Write the premium status parameter permanently into firestore
     await doc_ref.set({"isPremium": True}, merge=True)
     
     return {
