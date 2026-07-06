@@ -424,3 +424,59 @@ async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
     for doc in docs:
         connections.append(doc.to_dict())
     return connections
+
+import razorpay
+from fastapi import HTTPException, Depends
+from pydantic import BaseModel
+
+# 🔑 Initialize Razorpay with your Test Key ID and Secret from the Razorpay Dashboard
+RAZORPAY_KEY_ID = os.getenv("rzp_test_TA6QY3ptxZ3HRY", "rzp_test_placeholder")
+RAZORPAY_KEY_SECRET = os.getenv("H9DAVyLY2BecD5pOcf5H6c76", "mock_secret_placeholder")
+
+client = razorpay.Client(auth=(rzp_test_TA6QY3ptxZ3HRY, H9DAVyLY2BecD5pOcf5H6c76))
+
+class PurchaseSchema(BaseModel):
+    item_id: str
+
+@app.post("/api/billing/create-order")
+async def create_order(
+    payload: PurchaseSchema, 
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    """
+    Generates a secure Razorpay Order for the player.
+    """
+    item = payload.item_id
+    
+    # Prices in Paise (1 INR = 100 Paise)
+    price_matrix = {
+        "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹399
+        "coin_pack_50": {"amount": 9900, "name": "50 Nexus Data Coins"}     # ₹149
+    }
+
+    if item not in price_matrix:
+        raise HTTPException(status_code=400, detail="Invalid item ID catalog entry.")
+
+    try:
+        # Create a payment order object inside Razorpay systems
+        order_data = {
+            "amount": price_matrix[item]["amount"],
+            "currency": "INR",
+            "receipt": f"rcpt_{user['uid'][:10]}_{item[:5]}",
+            "notes": {
+                "player_uid": user["uid"],
+                "purchased_item": item
+            }
+        }
+        
+        razorpay_order = client.order.create(data=order_data)
+        
+        return {
+            "order_id": razorpay_order["id"],
+            "amount": razorpay_order["amount"],
+            "currency": razorpay_order["currency"],
+            "key_id": rzp_test_TA6QY3ptxZ3HRY,
+            "product_name": price_matrix[item]["name"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
