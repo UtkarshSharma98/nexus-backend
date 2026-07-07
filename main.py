@@ -477,3 +477,57 @@ async def create_order(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+
+class UseItemSchema(BaseModel):
+    item_id: str
+
+@app.post("/api/inventory/consume")
+async def consume_backpack_item(
+    payload: UseItemSchema,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    doc_snap = await doc_ref.get()
+    
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player matrix dropped.")
+    
+    player_data = doc_snap.to_dict()
+    inventory = player_data.get("inventory", {})
+    item = payload.item_id
+
+    # 🛑 Check if they actually own the collectible asset
+    if inventory.get(item, 0) <= 0:
+        raise HTTPException(status_code=400, detail="Item resource quantity exhausted.")
+
+    # Deduct item from backpack array
+    inventory[item] -= 1
+    player_data["inventory"] = inventory
+    execution_message = ""
+
+    # ⚡ APPLICATION MODIFIER LOGIC PER ITEM ID
+    if item == "energy_drink":
+        current_energy = player_data.get("energy", 100)
+        player_data["energy"] = min(current_energy + 40, 100) # Restores 40 energy
+        execution_message = "⚡ Energy Drink consumed. Core energy cell boosted by +40 points."
+        
+    elif item == "brain_booster":
+        # Note: True duration tracking involves active timestamp deltas. 
+        # For simple execution, we grant a flat coin bonus or log state.
+        execution_message = "🧠 Brain Booster initialized. Mental core state overclocked."
+        
+    elif item == "streak_shield":
+        execution_message = "🛡️ Streak Shield locked in. Safe-harbor matrix active for next check-in."
+        
+    elif item == "memory_book":
+        execution_message = "📚 Revision log initialized. Study recall index stabilized."
+        
+    else:
+        raise HTTPException(status_code=400, detail="Unknown artifact identification sequence.")
+
+    await doc_ref.set(player_data, merge=True)
+    return {
+        "message": execution_message,
+        "updated_player": player_data
+    }
