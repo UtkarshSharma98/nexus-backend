@@ -504,7 +504,7 @@ async def purchase_inventory_item(
     # 🪙 Shop base balancing pricing structures
     ITEM_PRICES = {
         "memory_book": 500,
-        "energy_drink": 300,
+        "energy_drink": 200,
         "brain_booster": 1200,
         "streak_shield": 1500
     }
@@ -564,8 +564,8 @@ async def consume_backpack_item(
     # ⚡ Application execution modification handlers
     if item == "energy_drink":
         current_energy = player_data.get("energy", 100)
-        player_data["energy"] = min(current_energy + 40, 100)
-        execution_message = "⚡ Energy Drink consumed. Core energy cell boosted by +40 points."
+        player_data["energy"] = min(current_energy + 3, 100)
+        execution_message = "⚡ Energy Drink consumed. Core energy cell boosted by +3 points."
         
     elif item == "brain_booster":
         execution_message = "🧠 Brain Booster initialized. Mental core state overclocked."
