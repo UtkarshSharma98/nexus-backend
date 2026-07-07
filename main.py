@@ -47,6 +47,13 @@ class PlayerStatsSchema(BaseModel):
     avatar_icon: str = "fa-user-ninja"
     theme_color: str = "#00f0ff"
     last_login: str = ""
+    # 🎒 Added item tracking keys (maps item_id to quantity owned)
+    inventory: dict[str, int] = {
+        "memory_book": 0,
+        "energy_drink": 1, # Give them one free drink on onboarding!
+        "brain_booster": 0,
+        "streak_shield": 0
+    }
 
 class CombatActionSchema(BaseModel):
     enemy_name: str
