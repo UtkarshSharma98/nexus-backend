@@ -47,10 +47,10 @@ class PlayerStatsSchema(BaseModel):
     avatar_icon: str = "fa-user-ninja"
     theme_color: str = "#00f0ff"
     last_login: str = ""
-    # 🎒 Added item tracking keys (maps item_id to quantity owned)
+    # 🎒 Tracks inventory items (maps item_id string to quantity owned integer)
     inventory: dict[str, int] = {
         "memory_book": 0,
-        "energy_drink": 1, # Give them one free drink on onboarding!
+        "energy_drink": 1,  # Free item on onboarding
         "brain_booster": 0,
         "streak_shield": 0
     }
@@ -69,6 +69,12 @@ class FriendRequestSchema(BaseModel):
     target_agent_name: str  
 
 class PurchaseSchema(BaseModel):
+    item_id: str
+
+class BuyItemSchema(BaseModel):
+    item_id: str
+
+class UseItemSchema(BaseModel):
     item_id: str
 
 # 🔑 RAZORPAY ENVIRONMENT VARIABLE HANDSHAKE
@@ -128,6 +134,10 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             except Exception as time_err:
                 print(f"Time validation error: {time_err}")
         
+        # Ensure inventory structure exists on older profiles
+        if "inventory" not in player_data:
+            player_data["inventory"] = {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
+
         # Sync calculated updates back to local object
         player_data["streak"] = current_streak
         player_data["last_login"] = current_time_str
@@ -142,7 +152,8 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             "agent_name": "Recruit Agent",
             "avatar_icon": "fa-user-ninja",
             "theme_color": "#00f0ff",
-            "last_login": current_time_str
+            "last_login": current_time_str,
+            "inventory": {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
         }
         await doc_ref.set(default_stats)
         return default_stats
@@ -473,13 +484,58 @@ async def create_order(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
 
-class UseItemSchema(BaseModel):
-    item_id: str
+# --- 🏪 COIN ITEM SHOP ROUTE ---
+
+@app.post("/api/store/buy-item")
+async def purchase_inventory_item(
+    payload: BuyItemSchema,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    doc_snap = await doc_ref.get()
+    
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player node missing.")
+    
+    player_data = doc_snap.to_dict()
+    
+    # 🪙 Shop base balancing pricing structures
+    ITEM_PRICES = {
+        "memory_book": 500,
+        "energy_drink": 300,
+        "brain_booster": 1200,
+        "streak_shield": 1500
+    }
+    
+    item = payload.item_id
+    if item not in ITEM_PRICES:
+        raise HTTPException(status_code=400, detail="Item not found in database registry catalog.")
+        
+    item_cost = ITEM_PRICES[item]
+    current_coins = player_data.get("coins", 0)
+    
+    # 🛑 Financial transaction guard validation check
+    if current_coins < item_cost:
+        raise HTTPException(status_code=400, detail="Insufficient coin reserves for transaction.")
+        
+    # Deduct structural balances
+    player_data["coins"] = current_coins - item_cost
+    
+    # Add items safely to standard profile dictionary
+    inventory = player_data.get("inventory", {})
+    inventory[item] = inventory.get(item, 0) + 1
+    player_data["inventory"] = inventory
+    
+    await doc_ref.set(player_data, merge=True)
+    return {
+        "message": f"Successfully acquired {item.replace('_', ' ').title()}!",
+        "updated_player": player_data
+    }
+
+
+# --- 🎒 INVENTORY CONSUMPTION ROUTE ---
 
 @app.post("/api/inventory/consume")
 async def consume_backpack_item(
@@ -497,24 +553,21 @@ async def consume_backpack_item(
     inventory = player_data.get("inventory", {})
     item = payload.item_id
 
-    # 🛑 Check if they actually own the collectible asset
     if inventory.get(item, 0) <= 0:
         raise HTTPException(status_code=400, detail="Item resource quantity exhausted.")
 
-    # Deduct item from backpack array
+    # Deduct single consumable execution stack
     inventory[item] -= 1
     player_data["inventory"] = inventory
     execution_message = ""
 
-    # ⚡ APPLICATION MODIFIER LOGIC PER ITEM ID
+    # ⚡ Application execution modification handlers
     if item == "energy_drink":
         current_energy = player_data.get("energy", 100)
-        player_data["energy"] = min(current_energy + 40, 100) # Restores 40 energy
+        player_data["energy"] = min(current_energy + 40, 100)
         execution_message = "⚡ Energy Drink consumed. Core energy cell boosted by +40 points."
         
     elif item == "brain_booster":
-        # Note: True duration tracking involves active timestamp deltas. 
-        # For simple execution, we grant a flat coin bonus or log state.
         execution_message = "🧠 Brain Booster initialized. Mental core state overclocked."
         
     elif item == "streak_shield":
@@ -531,3 +584,9 @@ async def consume_backpack_item(
         "message": execution_message,
         "updated_player": player_data
     }
+
+
+# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
