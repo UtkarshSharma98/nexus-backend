@@ -71,38 +71,150 @@ CLASS_ENEMY_MATRIX = {
     "Matrix Protocol Mentor": ["Lesson Plan Disruption", "Evaluation Metric Anomalies", "Curriculum Shift Spec"]
 }
 
-# 🗺️ Structural Sector maps corresponding directly to stream choices
+# 🗺️ Structural Sector maps matching all explicit stream options
 STREAM_SKILL_TREES = {
-    "NEET (Medical Entrance)": {
-        "sector_name": "Bio-Labs Nexus",
+    "10th Standard (Boards Prep)": {
+        "sector_name": "The Alpha Outpost",
         "nodes": {
-            "node_1": {"title": "Human Anatomy Cells", "type": "Core Core", "unlocked": True, "completed": False, "xp_reward": 500},
-            "node_2": {"title": "Organic Reaction Mechanisms", "type": "Alchemical", "unlocked": False, "completed": False, "xp_reward": 750},
-            "node_3": {"title": "Plant Physiology Matrix", "type": "Bio-Botany", "unlocked": False, "completed": False, "xp_reward": 900}
+            "node_1": {"title": "Quadratic Equation Arrays", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 400},
+            "node_2": {"title": "Chemical Redox Systems", "type": "Core Stance", "unlocked": False, "completed": False, "xp_reward": 500},
+            "node_3": {"title": "Grammar Syntactic Matrices", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 600},
+            "node_4": {"title": "Trigonometric Geometry Nodes", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 800}
         }
     },
-    "BCA (Bachelor of Computer Applications)": {
-        "sector_name": "Data Grid Sector",
+    "12th Standard (Science/Commerce/Arts)": {
+        "sector_name": "Foundation Grid Nexus",
         "nodes": {
-            "node_1": {"title": "Linear Data Structures", "type": "Sub-Routine", "unlocked": True, "completed": False, "xp_reward": 500},
-            "node_2": {"title": "OOPs Polymorphism Gates", "type": "Compiler", "unlocked": False, "completed": False, "xp_reward": 750},
-            "node_3": {"title": "OS Memory Allocation Pools", "type": "Kernel Layer", "unlocked": False, "completed": False, "xp_reward": 950}
+            "node_1": {"title": "Calculus Vector Streams", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "Macroeconomic Flow Control", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 600},
+            "node_3": {"title": "Organic Synthesis Protocols", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 700},
+            "node_4": {"title": "Quantum Wave Foundations", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 900}
         }
     },
     "B.Tech (Bachelor of Technology)": {
         "sector_name": "Silicon Foundry Matrix",
         "nodes": {
-            "node_1": {"title": "Asymptotic Analysis", "type": "Algorithm Core", "unlocked": True, "completed": False, "xp_reward": 600},
-            "node_2": {"title": "Distributed Database Clusters", "type": "Data Mesh", "unlocked": False, "completed": False, "xp_reward": 800},
-            "node_3": {"title": "Network Socket Protocols", "type": "Cybercomms", "unlocked": False, "completed": False, "xp_reward": 1000}
+            "node_1": {"title": "Asymptotic Analysis Stance", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 600},
+            "node_2": {"title": "Distributed Database Clusters", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 800},
+            "node_3": {"title": "Network Socket Protocols", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1000},
+            "node_4": {"title": "Automated Deployment Daemons", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1200}
         }
     },
-    "10th Standard (Boards Prep)": {
-        "sector_name": "The Alpha Outpost",
+    "M.Tech (Master of Technology)": {
+        "sector_name": "Quantum Singularity Lab",
         "nodes": {
-            "node_1": {"title": "Quadratic Equation Arrays", "type": "Algebra Core", "unlocked": True, "completed": False, "xp_reward": 400},
-            "node_2": {"title": "Chemical Redox Systems", "type": "Elemental Lab", "unlocked": False, "completed": False, "xp_reward": 600},
-            "node_3": {"title": "Grammar Syntactic Matrices", "type": "Linguistic Node", "unlocked": False, "completed": False, "xp_reward": 600}
+            "node_1": {"title": "Neural Topology Optimization", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 800},
+            "node_2": {"title": "Distributed Cryptography Chains", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 1000},
+            "node_3": {"title": "Advanced Quantum Architecture", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1200},
+            "node_4": {"title": "Fault-Tolerant Compute Swarms", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1500}
+        }
+    },
+    "MBBS (Bachelor of Medicine, Bachelor of Surgery)": {
+        "sector_name": "Bio-Patch Infirmary",
+        "nodes": {
+            "node_1": {"title": "Gross Anatomy Frameworks", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 600},
+            "node_2": {"title": "Pathological Identification Stance", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 800},
+            "node_3": {"title": "Surgical Precision Vectors", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1000},
+            "node_4": {"title": "Pharmacology Signal Injection", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1200}
+        }
+    },
+    "MD / MS (Doctor of Medicine / Master of Surgery)": {
+        "sector_name": "Sanctum Neuro-Surgical Core",
+        "nodes": {
+            "node_1": {"title": "Synaptic Re-Routing Stance", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 900},
+            "node_2": {"title": "Microvascular Anastomosis", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 1100},
+            "node_3": {"title": "Internal Trauma Override", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1300},
+            "node_4": {"title": "Nanobotic Bio-Sealing Arrays", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1600}
+        }
+    },
+    "B.Pharm (Bachelor of Pharmacy)": {
+        "sector_name": "Nano-Chemical Foundry",
+        "nodes": {
+            "node_1": {"title": "Medicinal Chemistry Blocks", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 550},
+            "node_2": {"title": "Bio-Pharmaceutics Transport", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "Toxicology Counter-Measures", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 950},
+            "node_4": {"title": "Assay Analysis Protocols", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1150}
+        }
+    },
+    "M.Pharm (Master of Pharmacy)": {
+        "sector_name": "Alchemical Production Spire",
+        "nodes": {
+            "node_1": {"title": "Targeted Molecular Delivery", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 750},
+            "node_2": {"title": "Clinical Pharmacokinetics", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 950},
+            "node_3": {"title": "Industrial Formulation Synthesis", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1150},
+            "node_4": {"title": "Polymer Matrix Coatings", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1400}
+        }
+    },
+    "BCA (Bachelor of Computer Applications)": {
+        "sector_name": "Data Grid Sector",
+        "nodes": {
+            "node_1": {"title": "Linear Data Structures", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "OOPs Polymorphism Gates", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 700},
+            "node_3": {"title": "OS Memory Allocation Pools", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 900},
+            "node_4": {"title": "Relational Query Normalization", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1100}
+        }
+    },
+    "MCA (Master of Computer Applications)": {
+        "sector_name": "Network Overlord Core",
+        "nodes": {
+            "node_1": {"title": "Enterprise Design Clusters", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 700},
+            "node_2": {"title": "Full-Stack System Routing", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 900},
+            "node_3": {"title": "Distributed Cloud Scalers", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1100},
+            "node_4": {"title": "Predictive AI Sub-Routines", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1350}
+        }
+    },
+    "BBA (Bachelor of Business Administration)": {
+        "sector_name": "Corpo-Executive District",
+        "nodes": {
+            "node_1": {"title": "Organizational Architecture", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "Financial Ledger Analysis", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 700},
+            "node_3": {"title": "Strategic Marketing Pipelines", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 900},
+            "node_4": {"title": "Supply-Chain Grid Optimization", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1100}
+        }
+    },
+    "MBA / PGDM (Master of Business Administration)": {
+        "sector_name": "Megacorp Strategy War-Room",
+        "nodes": {
+            "node_1": {"title": "Corporate Mergers Stance", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 800},
+            "node_2": {"title": "Risk Mitigation Matrices", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 1000},
+            "node_3": {"title": "Venture Capital Valuation", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1200},
+            "node_4": {"title": "Macro Global Expansion Maps", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1500}
+        }
+    },
+    "UPSC / Civil Services": {
+        "sector_name": "Network Grid Bureaucracy",
+        "nodes": {
+            "node_1": {"title": "Constitutional Protocol Matrices", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 750},
+            "node_2": {"title": "Macro-Geopolitical Alliances", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 950},
+            "node_3": {"title": "Public Policy Implementation", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 1150},
+            "node_4": {"title": "Crisis Management Protocols", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1450}
+        }
+    },
+    "REET / TET (Teaching Eligibility)": {
+        "sector_name": "Matrix Protocol Academy",
+        "nodes": {
+            "node_1": {"title": "Pedagogical Schema Alignment", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 450},
+            "node_2": {"title": "Child Cognition Blueprints", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 600},
+            "node_3": {"title": "Curriculum Design Engines", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_4": {"title": "Psychometric Testing Nodes", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 950}
+        }
+    },
+    "NEET (Medical Entrance)": {
+        "sector_name": "Bio-Labs Sector",
+        "nodes": {
+            "node_1": {"title": "Human Anatomy Cells", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "Organic Reaction Mechanisms", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "Plant Physiology Matrix", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 900},
+            "node_4": {"title": "Genetics Sequence Parsing", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1100}
+        }
+    },
+    "JEE (Engineering Entrance)": {
+        "sector_name": "Mechanized Cadence Crucible",
+        "nodes": {
+            "node_1": {"title": "Kinematic Calculus Arrays", "type": "Core Stance", "unlocked": True, "completed": False, "xp_reward": 550},
+            "node_2": {"title": "Electromagnetic Flux Bounds", "type": "Pillar Stance", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "Aromatic Synthesis Gates", "type": "Thrust Stance", "unlocked": False, "completed": False, "xp_reward": 950},
+            "node_4": {"title": "Permutation Combinatorics", "type": "Transformation", "unlocked": False, "completed": False, "xp_reward": 1200}
         }
     }
 }
@@ -112,7 +224,6 @@ def determine_rpg_class(stream_str: str) -> str:
     if stream_str in STREAM_CLASS_MAPPING:
         return STREAM_CLASS_MAPPING[stream_str]
     
-    # Fallback substring detection mapping
     if "B.Tech" in stream_str or "M.Tech" in stream_str:
         return "Cybernetic Architect"
     if "MBBS" in stream_str or "Pharm" in stream_str or "MD" in stream_str:
@@ -237,7 +348,6 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
         if "stream" not in player_data:
             player_data["stream"] = "10th Standard (Boards Prep)"
             
-        # Dynamic structural skill tree validation fallback logic
         user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
         if "skill_tree" not in player_data:
             fallback_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
@@ -709,10 +819,8 @@ async def unlock_skill_tree_node(
     player_data = doc_snap.to_dict()
     user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
     
-    if user_stream not in STREAM_SKILL_TREES:
-        raise HTTPException(status_code=400, detail="No sector maps mapped to this profile stream context.")
-        
-    user_tree = player_data.get("skill_tree", STREAM_SKILL_TREES[user_stream])
+    lookup_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
+    user_tree = player_data.get("skill_tree", STREAM_SKILL_TREES[lookup_stream])
     nodes = user_tree.get("nodes", {})
     target_node = payload.node_id
     
@@ -749,7 +857,6 @@ async def unlock_skill_tree_node(
         "updated_player": player_data
     }
 
-# 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
