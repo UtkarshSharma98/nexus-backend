@@ -245,6 +245,22 @@ async def update_player_stream(
     }
 
 @app.post("/api/combat/analyze")
+CLASS_ENEMY_MATRIX = {
+    "Initiate Operator": ["Homework Overload Drone", "Pop Quiz Sentinel", "Procrastination Phantom"],
+    "Foundation Cadet": ["Algebraic Matrix Golem", "Grammar Error Glitch", "Syllabus Behemoth"],
+    "Cybernetic Architect": ["Legacy Loop Bug", "Memory Leak Phantom", "Null Pointer Spectre", "Merge Conflict Titan"],
+    "Quantum Architect": ["Distributed System Chaos", "Concurrency Deadlock", "Asymptotic Complexity Demon"],
+    "Bio-Patch Medic": ["Pathogen Logic Bomb", "Anatomy Memory Wipe", "Clinical Trial Aberration"],
+    "Chief Neuro-Surgeon": ["Malpractice Mirage", "Systemic Synapse Collapse", "Bio-Metric Override Overlord"],
+    "Nano-Geneticist": ["Mutated Sequence Glitch", "Enzyme Inhibitor Spectre", "Chemical Spill Hazard"],
+    "Alchemical Bio-Engineer": ["Formulation Volatility Void", "Batch Contamination Beast"],
+    "Data Grid Tech": ["Uncompiled Stack Overflow", "Spaghetti Code Hydra", "Database Dropout"],
+    "Network Overlord": ["Distributed DoS Swarm", "Packet Loss Wraith", "Root Cert Expiry Dragon"],
+    "Corpo-Executive": ["Quarterly Review Reaper", "Micro-Management Drone", "Spreadsheet Vortex"],
+    "Megacorp Strategist": ["Corpo Budget Auditor", "Market Deflation Specter", "Liquidity Crunch Titan"],
+    "Network Grid Prefect": ["Bureaucracy Red-Tape Hydra", "Public Policy Paradox", "Civics Evaluation Sentinel"],
+    "Matrix Protocol Mentor": ["Lesson Plan Disruption", "Evaluation Metric Anomalies", "Curriculum Shift Spec"]
+}
 async def process_combat_encounter(
     action_data: CombatActionSchema,
     user: Annotated[dict, Depends(get_current_user)]
