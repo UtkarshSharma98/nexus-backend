@@ -33,6 +33,45 @@ app.add_middleware(
 
 security_bearer = HTTPBearer()
 
+# --- STREAM TO RPG CLASS MAP CONNECTOR matrix ---
+STREAM_CLASS_MAPPING = {
+    "10th Standard (Boards Prep)": "Initiate Operator",
+    "12th Standard (Science/Commerce/Arts)": "Foundation Cadet",
+    "B.Tech (Bachelor of Technology)": "Cybernetic Architect",
+    "M.Tech (Master of Technology)": "Quantum Architect",
+    "MBBS (Bachelor of Medicine, Bachelor of Surgery)": "Bio-Patch Medic",
+    "MD / MS (Doctor of Medicine / Master of Surgery)": "Chief Neuro-Surgeon",
+    "B.Pharm (Bachelor of Pharmacy)": "Nano-Geneticist",
+    "M.Pharm (Master of Pharmacy)": "Alchemical Bio-Engineer",
+    "BCA (Bachelor of Computer Applications)": "Data Grid Tech",
+    "MCA (Master of Computer Applications)": "Network Overlord",
+    "BBA (Bachelor of Business Administration)": "Corpo-Executive",
+    "MBA / PGDM (Master of Business Administration)": "Megacorp Strategist",
+    "UPSC / Civil Services": "Network Grid Prefect",
+    "REET / TET (Teaching Eligibility)": "Matrix Protocol Mentor",
+    "NEET (Medical Entrance)": "Bio-Labs Intern",
+    "JEE (Engineering Entrance)": "Mechanized Cadet"
+}
+
+def determine_rpg_class(stream_str: str) -> str:
+    """Helper macro to safely translate an academic stream to an RPG specialization title"""
+    if stream_str in STREAM_CLASS_MAPPING:
+        return STREAM_CLASS_MAPPING[stream_str]
+    
+    # Fallback substring detection mapping
+    if "B.Tech" in stream_str or "M.Tech" in stream_str:
+        return "Cybernetic Architect"
+    if "MBBS" in stream_str or "Pharm" in stream_str or "MD" in stream_str:
+        return "Bio-Patch Medic"
+    if "MBA" in stream_str or "BBA" in stream_str:
+        return "Megacorp Strategist"
+    if "10th" in stream_str or "12th" in stream_str:
+        return "Foundation Cadet"
+    if "BCA" in stream_str or "MCA" in stream_str:
+        return "Data Grid Tech"
+        
+    return "Freelance Operator"
+
 # --- VALIDATION SCHEMAS ---
 
 class PlayerStatsSchema(BaseModel):
@@ -55,7 +94,9 @@ class PlayerStatsSchema(BaseModel):
         "streak_shield": 0
     }
     # 🎓 Tracks the player's specialized academic/professional track
-    stream: str = "General Cybernetics"
+    stream: str = "10th Standard (Boards Prep)"
+    # 🏅 Dynamic structural subclass derived directly from current stream alignment
+    agent_class: str = "Initiate Operator"
 
 class CombatActionSchema(BaseModel):
     enemy_name: str
@@ -143,7 +184,10 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
         if "inventory" not in player_data:
             player_data["inventory"] = {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
         if "stream" not in player_data:
-            player_data["stream"] = "General Cybernetics"
+            player_data["stream"] = "10th Standard (Boards Prep)"
+            
+        # Calculate/re-sync current dynamic agent RPG title on load
+        player_data["agent_class"] = determine_rpg_class(player_data["stream"])
 
         # Sync calculated updates back to local object
         player_data["streak"] = current_streak
@@ -161,7 +205,8 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             "theme_color": "#00f0ff",
             "last_login": current_time_str,
             "inventory": {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0},
-            "stream": "General Cybernetics"
+            "stream": "10th Standard (Boards Prep)",
+            "agent_class": "Initiate Operator"
         }
         await doc_ref.set(default_stats)
         return default_stats
@@ -170,8 +215,13 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
 async def sync_player_stats(stats: PlayerStatsSchema, user: Annotated[dict, Depends(get_current_user)]):
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
-    await doc_ref.set(stats.model_dump(), merge=True)
-    return {"message": "Cloud matrix profile written successfully."}
+    
+    # Process updates safely by ensuring calculated class overrides match state changes
+    mutated_payload = stats.model_dump()
+    mutated_payload["agent_class"] = determine_rpg_class(mutated_payload.get("stream", "10th Standard (Boards Prep)"))
+    
+    await doc_ref.set(mutated_payload, merge=True)
+    return {"message": "Cloud matrix profile written successfully.", "agent_class": mutated_payload["agent_class"]}
 
 @app.post("/api/player/update-stream")
 async def update_player_stream(
@@ -181,8 +231,18 @@ async def update_player_stream(
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     
-    await doc_ref.set({"stream": payload.stream}, merge=True)
-    return {"message": f"Core domain alignment altered to {payload.stream}."}
+    calculated_class = determine_rpg_class(payload.stream)
+    
+    # Push stream identity change and auto-calculate class title
+    await doc_ref.set({
+        "stream": payload.stream,
+        "agent_class": calculated_class
+    }, merge=True)
+    
+    return {
+        "message": f"Core domain alignment altered to {payload.stream}.",
+        "unlocked_class": calculated_class
+    }
 
 @app.post("/api/combat/analyze")
 async def process_combat_encounter(
@@ -199,11 +259,13 @@ async def process_combat_encounter(
     if not player_data.get("isPremium", False) and player_data.get("energy", 100) < 10:
         raise HTTPException(status_code=400, detail="Insufficient action energy.")
 
+    agent_class_title = player_data.get("agent_class", "Freelance Operator")
+
     prompt_context = (
         f"You are the combat judge for a retro cyberpunk study RPG. "
-        f"The player is fighting a '{action_data.enemy_name}'. "
+        f"The player is a subclass layer archetype of '{agent_class_title}' fighting a '{action_data.enemy_name}'. "
         f"They submitted this action: '{action_data.action_submitted}'. "
-        f"Determine if they succeeded or failed. Provide a dramatic text battle output "
+        f"Determine if they succeeded or failed. Provide a dramatic text battle output flavor text fitting for a {agent_class_title} "
         f"and end your response with exactly: 'SCORE: <0 to 100>' indicating action efficacy."
     )
 
@@ -266,13 +328,15 @@ async def process_study_module(
     if not player_data.get("isPremium", False) and player_data.get("energy", 100) < 5:
         raise HTTPException(status_code=400, detail="Insufficient action energy to study.")
 
-    # Fetch player's current stream specialization context
-    player_stream = player_data.get("stream", "General Cybernetics")
+    # Fetch player's current stream specialization context and custom class title mapping
+    player_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+    agent_class_title = player_data.get("agent_class", "Freelance Operator")
 
     prompt_context = (
-        f"You are an expert retro cyberpunk AI mentor tutor specializing in the field of {player_stream}. "
-        f"Explain the following study topic thoroughly within the practical application context of {player_stream}: '{payload.topic}'. "
-        f"Provide a clear, engaging breakdown of the concept using real-world or theoretical domain problems, "
+        f"You are an expert retro cyberpunk AI mentor tutor coaching a user whose class role is '{agent_class_title}'. "
+        f"They are specializing in the Indian education track field of {player_stream}. "
+        f"Explain the following study topic thoroughly within the logical framing parameters of {player_stream}: '{payload.topic}'. "
+        f"Provide a clear, engaging breakdown of the concept using real-world or academic domain problems relative to this field, "
         f"and conclude with a quick 1-question check for understanding."
     )
 
