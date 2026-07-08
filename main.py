@@ -713,6 +713,40 @@ async def unlock_skill_tree_node(payload: UnlockNodeSchema, user: Annotated[dict
     await doc_ref.set(player_data, merge=True)
     return {"message": f"Successfully completed {node_data['title']}!", "xp_earned": xp_earned, "updated_player": player_data}
 
+    class CompleteMissionSchema(BaseModel):
+    mission_id: str
+
+@app.post("/api/missions/complete")
+async def complete_mission(
+    payload: CompleteMissionSchema, 
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    doc_snap = await doc_ref.get()
+    
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player profile not found.")
+        
+    player_data = doc_snap.to_dict()
+    completed_missions = player_data.get("completed_missions", [])
+    
+    # Avoid duplicates
+    if payload.mission_id not in completed_missions:
+        completed_missions.append(payload.mission_id)
+        player_data["completed_missions"] = completed_missions
+        
+        # Optional: Give a bonus reward for completing a main mission
+        player_data["coins"] = player_data.get("coins", 0) + 100 
+        
+        await doc_ref.set(player_data, merge=True)
+        return {
+            "message": f"Mission '{payload.mission_id.replace('_', ' ').title()}' cleared! Gateway unlocked.",
+            "updated_player": player_data
+        }
+        
+    return {"message": "Mission already cleared.", "updated_player": player_data}
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
