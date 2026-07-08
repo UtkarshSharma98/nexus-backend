@@ -71,6 +71,42 @@ CLASS_ENEMY_MATRIX = {
     "Matrix Protocol Mentor": ["Lesson Plan Disruption", "Evaluation Metric Anomalies", "Curriculum Shift Spec"]
 }
 
+# 🗺️ Structural Sector maps corresponding directly to stream choices
+STREAM_SKILL_TREES = {
+    "NEET (Medical Entrance)": {
+        "sector_name": "Bio-Labs Nexus",
+        "nodes": {
+            "node_1": {"title": "Human Anatomy Cells", "type": "Core Core", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "Organic Reaction Mechanisms", "type": "Alchemical", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "Plant Physiology Matrix", "type": "Bio-Botany", "unlocked": False, "completed": False, "xp_reward": 900}
+        }
+    },
+    "BCA (Bachelor of Computer Applications)": {
+        "sector_name": "Data Grid Sector",
+        "nodes": {
+            "node_1": {"title": "Linear Data Structures", "type": "Sub-Routine", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "OOPs Polymorphism Gates", "type": "Compiler", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "OS Memory Allocation Pools", "type": "Kernel Layer", "unlocked": False, "completed": False, "xp_reward": 950}
+        }
+    },
+    "B.Tech (Bachelor of Technology)": {
+        "sector_name": "Silicon Foundry Matrix",
+        "nodes": {
+            "node_1": {"title": "Asymptotic Analysis", "type": "Algorithm Core", "unlocked": True, "completed": False, "xp_reward": 600},
+            "node_2": {"title": "Distributed Database Clusters", "type": "Data Mesh", "unlocked": False, "completed": False, "xp_reward": 800},
+            "node_3": {"title": "Network Socket Protocols", "type": "Cybercomms", "unlocked": False, "completed": False, "xp_reward": 1000}
+        }
+    },
+    "10th Standard (Boards Prep)": {
+        "sector_name": "The Alpha Outpost",
+        "nodes": {
+            "node_1": {"title": "Quadratic Equation Arrays", "type": "Algebra Core", "unlocked": True, "completed": False, "xp_reward": 400},
+            "node_2": {"title": "Chemical Redox Systems", "type": "Elemental Lab", "unlocked": False, "completed": False, "xp_reward": 600},
+            "node_3": {"title": "Grammar Syntactic Matrices", "type": "Linguistic Node", "unlocked": False, "completed": False, "xp_reward": 600}
+        }
+    }
+}
+
 def determine_rpg_class(stream_str: str) -> str:
     """Helper macro to safely translate an academic stream to an RPG specialization title"""
     if stream_str in STREAM_CLASS_MAPPING:
@@ -104,17 +140,15 @@ class PlayerStatsSchema(BaseModel):
     avatar_icon: str = "fa-user-ninja"
     theme_color: str = "#00f0ff"
     last_login: str = ""
-    # 🎒 Tracks inventory items (maps item_id string to quantity owned integer)
     inventory: dict[str, int] = {
         "memory_book": 0,
-        "energy_drink": 1,  # Free item on onboarding
+        "energy_drink": 1,
         "brain_booster": 0,
         "streak_shield": 0
     }
-    # 🎓 Tracks the player's specialized academic/professional track
     stream: str = "10th Standard (Boards Prep)"
-    # 🏅 Dynamic structural subclass derived directly from current stream alignment
     agent_class: str = "Initiate Operator"
+    skill_tree: dict | None = None
 
 class CombatActionSchema(BaseModel):
     enemy_name: str
@@ -140,6 +174,9 @@ class BuyItemSchema(BaseModel):
 
 class UseItemSchema(BaseModel):
     item_id: str
+
+class UnlockNodeSchema(BaseModel):
+    node_id: str
 
 # 🔑 RAZORPAY ENVIRONMENT VARIABLE HANDSHAKE
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_placeholder")
@@ -188,33 +225,32 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
                 now = datetime.now(timezone.utc)
                 hours_passed = (now - last_login).total_seconds() / 3600
                 
-                # 🕒 Case A: Over 48 hours missed? Streak breaks.
                 if hours_passed >= 48:
                     current_streak = 1
-                # 🚀 Case B: Between 24 and 48 hours? Streak increments!
                 elif 24 <= hours_passed < 48:
                     current_streak += 1
-                # Case C: Under 24 hours? Keep streak exactly the same.
             except Exception as time_err:
                 print(f"Time validation error: {time_err}")
         
-        # Ensure fallback structures exist on older profiles
         if "inventory" not in player_data:
             player_data["inventory"] = {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
         if "stream" not in player_data:
             player_data["stream"] = "10th Standard (Boards Prep)"
             
-        # Calculate/re-sync current dynamic agent RPG title on load
+        # Dynamic structural skill tree validation fallback logic
+        user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+        if "skill_tree" not in player_data:
+            fallback_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
+            player_data["skill_tree"] = STREAM_SKILL_TREES[fallback_stream]
+            
         player_data["agent_class"] = determine_rpg_class(player_data["stream"])
-
-        # Sync calculated updates back to local object
         player_data["streak"] = current_streak
         player_data["last_login"] = current_time_str
         
         await doc_ref.set(player_data, merge=True)
         return player_data
     else:
-        # Initial onboarding profile defaults
+        default_stream = "10th Standard (Boards Prep)"
         default_stats = {
             "xp": 0, "level": 1, "coins": 0, "gems": 0, "energy": 100, 
             "isPremium": False, "streak": 1,
@@ -223,8 +259,9 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             "theme_color": "#00f0ff",
             "last_login": current_time_str,
             "inventory": {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0},
-            "stream": "10th Standard (Boards Prep)",
-            "agent_class": "Initiate Operator"
+            "stream": default_stream,
+            "agent_class": "Initiate Operator",
+            "skill_tree": STREAM_SKILL_TREES[default_stream]
         }
         await doc_ref.set(default_stats)
         return default_stats
@@ -234,7 +271,6 @@ async def sync_player_stats(stats: PlayerStatsSchema, user: Annotated[dict, Depe
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
     
-    # Process updates safely by ensuring calculated class overrides match state changes
     mutated_payload = stats.model_dump()
     mutated_payload["agent_class"] = determine_rpg_class(mutated_payload.get("stream", "10th Standard (Boards Prep)"))
     
@@ -250,11 +286,12 @@ async def update_player_stream(
     doc_ref = db.collection("users").document(uid)
     
     calculated_class = determine_rpg_class(payload.stream)
+    new_skill_tree = STREAM_SKILL_TREES.get(payload.stream, STREAM_SKILL_TREES["10th Standard (Boards Prep)"])
     
-    # Push stream identity change and auto-calculate class title
     await doc_ref.set({
         "stream": payload.stream,
-        "agent_class": calculated_class
+        "agent_class": calculated_class,
+        "skill_tree": new_skill_tree
     }, merge=True)
     
     return {
@@ -306,7 +343,6 @@ async def process_combat_encounter(
         except ValueError:
             pass
 
-    # Calculate streak reward modifiers (5% per streak tier, capped at 50%)
     streak_tier = player_data.get("streak", 1)
     multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
     
@@ -347,7 +383,6 @@ async def process_study_module(
     if not player_data.get("isPremium", False) and player_data.get("energy", 100) < 5:
         raise HTTPException(status_code=400, detail="Insufficient action energy to study.")
 
-    # Fetch player's current stream specialization context and custom class title mapping
     player_stream = player_data.get("stream", "10th Standard (Boards Prep)")
     agent_class_title = player_data.get("agent_class", "Freelance Operator")
 
@@ -369,10 +404,7 @@ async def process_study_module(
         print(f"Gemini processing failure: {gemini_err}")
         raise HTTPException(status_code=502, detail="AI interpretation layer timed out.")
 
-    # Base study score threshold replacement for metrics calculations
     base_study_score = 80
-
-    # Calculate streak reward modifiers (5% per streak tier, capped at 50%)
     streak_tier = player_data.get("streak", 1)
     multiplier = 1.0 + min((streak_tier - 1) * 0.05, 0.50)
 
@@ -426,7 +458,6 @@ async def get_global_leaderboard(user: Annotated[dict, Depends(get_current_user)
         print(f"Leaderboard extraction matrix failure: {e}")
         raise HTTPException(status_code=500, detail="Failed to query network scoreboard records.")
 
-# 🔋 REAL PAYMENT ENERGY FULFILLMENT INTERFACE
 @app.post("/api/store/buy-energy")
 async def purchase_energy_pack(
     payload: EnergyPurchaseSchema,
@@ -459,22 +490,17 @@ async def purchase_energy_pack(
         "updated_player": player_data
     }
 
-# 👑 PREMIUM LICENSE FULFILLMENT ROUTE
 @app.post("/api/store/activate-premium")
 async def activate_premium_license(
     user: Annotated[dict, Depends(get_current_user)]
 ):
     uid = user["uid"]
     doc_ref = db.collection("users").document(uid)
-    
     await doc_ref.set({"isPremium": True}, merge=True)
-    
     return {
         "status": "success",
         "message": "Premium status permanent override synchronized successfully."
     }
-
-# 🚀 SOCIAL UPLINK ENDPOINTS
 
 @app.post("/api/social/request")
 async def send_friend_request(
@@ -549,19 +575,16 @@ async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
         connections.append(doc.to_dict())
     return connections
 
-# 🚀 BILLING RAZORPAY GATEWAY INTERFACE
-
 @app.post("/api/billing/create-order")
 async def create_order(
     payload: PurchaseSchema, 
     user: Annotated[dict, Depends(get_current_user)]
 ):
     item = payload.item_id
-    
     price_matrix = {
-        "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"}, # ₹249
-        "energy_pack_100": {"amount": 9900, "name": "100 Matrix Energy Pack"}, # ₹99
-        "energy_pack_50": {"amount": 4900, "name": "50 Matrix Energy Pack"}     # ₹49
+        "premium_tier": {"amount": 24900, "name": "Nexus Premium Upgrade"},
+        "energy_pack_100": {"amount": 9900, "name": "100 Matrix Energy Pack"},
+        "energy_pack_50": {"amount": 4900, "name": "50 Matrix Energy Pack"}
     }
 
     if item not in price_matrix:
@@ -577,9 +600,7 @@ async def create_order(
                 "purchased_item": item
             }
         }
-        
         razorpay_order = client.order.create(data=order_data)
-        
         return {
             "order_id": razorpay_order["id"],
             "amount": razorpay_order["amount"],
@@ -589,9 +610,6 @@ async def create_order(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- 🏪 COIN ITEM SHOP ROUTE ---
 
 @app.post("/api/store/buy-item")
 async def purchase_inventory_item(
@@ -606,8 +624,6 @@ async def purchase_inventory_item(
         raise HTTPException(status_code=404, detail="Player node missing.")
     
     player_data = doc_snap.to_dict()
-    
-    # 🪙 Shop base balancing pricing structures
     ITEM_PRICES = {
         "memory_book": 500,
         "energy_drink": 200,
@@ -622,14 +638,10 @@ async def purchase_inventory_item(
     item_cost = ITEM_PRICES[item]
     current_coins = player_data.get("coins", 0)
     
-    # 🛑 Financial transaction guard validation check
     if current_coins < item_cost:
         raise HTTPException(status_code=400, detail="Insufficient coin reserves for transaction.")
         
-    # Deduct structural balances
     player_data["coins"] = current_coins - item_cost
-    
-    # Add items safely to standard profile dictionary
     inventory = player_data.get("inventory", {})
     inventory[item] = inventory.get(item, 0) + 1
     player_data["inventory"] = inventory
@@ -639,9 +651,6 @@ async def purchase_inventory_item(
         "message": f"Successfully acquired {item.replace('_', ' ').title()}!",
         "updated_player": player_data
     }
-
-
-# --- 🎒 INVENTORY CONSUMPTION ROUTE ---
 
 @app.post("/api/inventory/consume")
 async def consume_backpack_item(
@@ -662,26 +671,20 @@ async def consume_backpack_item(
     if inventory.get(item, 0) <= 0:
         raise HTTPException(status_code=400, detail="Item resource quantity exhausted.")
 
-    # Deduct single consumable execution stack
     inventory[item] -= 1
     player_data["inventory"] = inventory
     execution_message = ""
 
-    # ⚡ Application execution modification handlers
     if item == "energy_drink":
         current_energy = player_data.get("energy", 100)
         player_data["energy"] = min(current_energy + 3, 100)
         execution_message = "⚡ Energy Drink consumed. Core energy cell boosted by +3 points."
-        
     elif item == "brain_booster":
         execution_message = "🧠 Brain Booster initialized. Mental core state overclocked."
-        
     elif item == "streak_shield":
         execution_message = "🛡️ Streak Shield locked in. Safe-harbor matrix active for next check-in."
-        
     elif item == "memory_book":
         execution_message = "📚 Revision log initialized. Study recall index stabilized."
-        
     else:
         raise HTTPException(status_code=400, detail="Unknown artifact identification sequence.")
 
@@ -690,47 +693,7 @@ async def consume_backpack_item(
         "message": execution_message,
         "updated_player": player_data
     }
-    from pydantic import BaseModel
 
-class UnlockNodeSchema(BaseModel):
-    node_id: str
-
-# 🗺️ Structural Sector maps corresponding directly to your stream choices.
-# Each node acts as a gateway lock that requires a specific study target action.
-STREAM_SKILL_TREES = {
-    "NEET (Medical Entrance)": {
-        "sector_name": "Bio-Labs Nexus",
-        "nodes": {
-            "node_1": {"title": "Human Anatomy Cells", "type": "Core Core", "unlocked": True, "completed": False, "xp_reward": 500},
-            "node_2": {"title": "Organic Reaction Mechanisms", "type": "Alchemical", "unlocked": False, "completed": False, "xp_reward": 750},
-            "node_3": {"title": "Plant Physiology Matrix", "type": "Bio-Botany", "unlocked": False, "completed": False, "xp_reward": 900}
-        }
-    },
-    "BCA (Bachelor of Computer Applications)": {
-        "sector_name": "Data Grid Sector",
-        "nodes": {
-            "node_1": {"title": "Linear Data Structures", "type": "Sub-Routine", "unlocked": True, "completed": False, "xp_reward": 500},
-            "node_2": {"title": "OOPs Polymorphism Gates", "type": "Compiler", "unlocked": False, "completed": False, "xp_reward": 750},
-            "node_3": {"title": "OS Memory Allocation Pools", "type": "Kernel Layer", "unlocked": False, "completed": False, "xp_reward": 950}
-        }
-    },
-    "B.Tech (Bachelor of Technology)": {
-        "sector_name": "Silicon Foundry Matrix",
-        "nodes": {
-            "node_1": {"title": "Asymptotic Analysis", "type": "Algorithm Core", "unlocked": True, "completed": False, "xp_reward": 600},
-            "node_2": {"title": "Distributed Database Clusters", "type": "Data Mesh", "unlocked": False, "completed": False, "xp_reward": 800},
-            "node_3": {"title": "Network Socket Protocols", "type": "Cybercomms", "unlocked": False, "completed": False, "xp_reward": 1000}
-        }
-    },
-    "10th Standard (Boards Prep)": {
-        "sector_name": "The Alpha Outpost",
-        "nodes": {
-            "node_1": {"title": "Quadratic Equation Arrays", "type": "Algebra Core", "unlocked": True, "completed": False, "xp_reward": 400},
-            "node_2": {"title": "Chemical Redox Systems", "type": "Elemental Lab", "unlocked": False, "completed": False, "xp_reward": 600},
-            "node_3": {"title": "Grammar Syntactic Matrices", "type": "Linguistic Node", "unlocked": False, "completed": False, "xp_reward": 600}
-        }
-    }
-}
 @app.post("/api/skills/unlock-node")
 async def unlock_skill_tree_node(
     payload: UnlockNodeSchema,
@@ -746,11 +709,9 @@ async def unlock_skill_tree_node(
     player_data = doc_snap.to_dict()
     user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
     
-    # Safely pull the user's specific map blueprint matrix layout
     if user_stream not in STREAM_SKILL_TREES:
         raise HTTPException(status_code=400, detail="No sector maps mapped to this profile stream context.")
         
-    # Get user's existing tree or instantiate a fresh instance copy layout state
     user_tree = player_data.get("skill_tree", STREAM_SKILL_TREES[user_stream])
     nodes = user_tree.get("nodes", {})
     target_node = payload.node_id
@@ -764,22 +725,18 @@ async def unlock_skill_tree_node(
     if nodes[target_node]["completed"]:
         return {"message": "Node already fully synthesized.", "updated_player": player_data}
         
-    # Complete current targeted node module index block
     nodes[target_node]["completed"] = True
     xp_earned = nodes[target_node]["xp_reward"]
     
-    # Progression loop logic calculation: Unlock sequential numerical indices sequentially
     current_index = int(target_node.split("_")[-1])
     next_node_id = f"node_{current_index + 1}"
     
     if next_node_id in nodes:
         nodes[next_node_id]["unlocked"] = True
         
-    # Save mutated branches layout back to user's database document instance
     player_data["skill_tree"] = user_tree
     player_data["xp"] = player_data.get("xp", 0) + xp_earned
     
-    # Level-up thresholds matching step checks
     next_level_threshold = player_data.get("level", 1) * 1000
     if player_data["xp"] >= next_level_threshold:
         player_data["xp"] -= next_level_threshold
@@ -791,7 +748,6 @@ async def unlock_skill_tree_node(
         "xp_earned": xp_earned,
         "updated_player": player_data
     }
-
 
 # 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
 if __name__ == "__main__":
