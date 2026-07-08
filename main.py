@@ -33,7 +33,7 @@ app.add_middleware(
 
 security_bearer = HTTPBearer()
 
-# --- STREAM TO RPG CLASS MAP CONNECTOR matrix ---
+# --- STREAM TO RPG CLASS MAP CONNECTOR MATRIX ---
 STREAM_CLASS_MAPPING = {
     "10th Standard (Boards Prep)": "Initiate Operator",
     "12th Standard (Science/Commerce/Arts)": "Foundation Cadet",
@@ -51,6 +51,24 @@ STREAM_CLASS_MAPPING = {
     "REET / TET (Teaching Eligibility)": "Matrix Protocol Mentor",
     "NEET (Medical Entrance)": "Bio-Labs Intern",
     "JEE (Engineering Entrance)": "Mechanized Cadet"
+}
+
+# --- GLOBAL CLASS ARENA ENEMY MATRIX ---
+CLASS_ENEMY_MATRIX = {
+    "Initiate Operator": ["Homework Overload Drone", "Pop Quiz Sentinel", "Procrastination Phantom"],
+    "Foundation Cadet": ["Algebraic Matrix Golem", "Grammar Error Glitch", "Syllabus Behemoth"],
+    "Cybernetic Architect": ["Legacy Loop Bug", "Memory Leak Phantom", "Null Pointer Spectre", "Merge Conflict Titan"],
+    "Quantum Architect": ["Distributed System Chaos", "Concurrency Deadlock", "Asymptotic Complexity Demon"],
+    "Bio-Patch Medic": ["Pathogen Logic Bomb", "Anatomy Memory Wipe", "Clinical Trial Aberration"],
+    "Chief Neuro-Surgeon": ["Malpractice Mirage", "Systemic Synapse Collapse", "Bio-Metric Override Overlord"],
+    "Nano-Geneticist": ["Mutated Sequence Glitch", "Enzyme Inhibitor Spectre", "Chemical Spill Hazard"],
+    "Alchemical Bio-Engineer": ["Formulation Volatility Void", "Batch Contamination Beast"],
+    "Data Grid Tech": ["Uncompiled Stack Overflow", "Spaghetti Code Hydra", "Database Dropout"],
+    "Network Overlord": ["Distributed DoS Swarm", "Packet Loss Wraith", "Root Cert Expiry Dragon"],
+    "Corpo-Executive": ["Quarterly Review Reaper", "Micro-Management Drone", "Spreadsheet Vortex"],
+    "Megacorp Strategist": ["Corpo Budget Auditor", "Market Deflation Specter", "Liquidity Crunch Titan"],
+    "Network Grid Prefect": ["Bureaucracy Red-Tape Hydra", "Public Policy Paradox", "Civics Evaluation Sentinel"],
+    "Matrix Protocol Mentor": ["Lesson Plan Disruption", "Evaluation Metric Anomalies", "Curriculum Shift Spec"]
 }
 
 def determine_rpg_class(stream_str: str) -> str:
@@ -245,22 +263,6 @@ async def update_player_stream(
     }
 
 @app.post("/api/combat/analyze")
-CLASS_ENEMY_MATRIX = {
-    "Initiate Operator": ["Homework Overload Drone", "Pop Quiz Sentinel", "Procrastination Phantom"],
-    "Foundation Cadet": ["Algebraic Matrix Golem", "Grammar Error Glitch", "Syllabus Behemoth"],
-    "Cybernetic Architect": ["Legacy Loop Bug", "Memory Leak Phantom", "Null Pointer Spectre", "Merge Conflict Titan"],
-    "Quantum Architect": ["Distributed System Chaos", "Concurrency Deadlock", "Asymptotic Complexity Demon"],
-    "Bio-Patch Medic": ["Pathogen Logic Bomb", "Anatomy Memory Wipe", "Clinical Trial Aberration"],
-    "Chief Neuro-Surgeon": ["Malpractice Mirage", "Systemic Synapse Collapse", "Bio-Metric Override Overlord"],
-    "Nano-Geneticist": ["Mutated Sequence Glitch", "Enzyme Inhibitor Spectre", "Chemical Spill Hazard"],
-    "Alchemical Bio-Engineer": ["Formulation Volatility Void", "Batch Contamination Beast"],
-    "Data Grid Tech": ["Uncompiled Stack Overflow", "Spaghetti Code Hydra", "Database Dropout"],
-    "Network Overlord": ["Distributed DoS Swarm", "Packet Loss Wraith", "Root Cert Expiry Dragon"],
-    "Corpo-Executive": ["Quarterly Review Reaper", "Micro-Management Drone", "Spreadsheet Vortex"],
-    "Megacorp Strategist": ["Corpo Budget Auditor", "Market Deflation Specter", "Liquidity Crunch Titan"],
-    "Network Grid Prefect": ["Bureaucracy Red-Tape Hydra", "Public Policy Paradox", "Civics Evaluation Sentinel"],
-    "Matrix Protocol Mentor": ["Lesson Plan Disruption", "Evaluation Metric Anomalies", "Curriculum Shift Spec"]
-}
 async def process_combat_encounter(
     action_data: CombatActionSchema,
     user: Annotated[dict, Depends(get_current_user)]
@@ -279,10 +281,11 @@ async def process_combat_encounter(
 
     prompt_context = (
         f"You are the combat judge for a retro cyberpunk study RPG. "
-        f"The player is a subclass layer archetype of '{agent_class_title}' fighting a '{action_data.enemy_name}'. "
-        f"They submitted this action: '{action_data.action_submitted}'. "
-        f"Determine if they succeeded or failed. Provide a dramatic text battle output flavor text fitting for a {agent_class_title} "
-        f"and end your response with exactly: 'SCORE: <0 to 100>' indicating action efficacy."
+        f"The player is a subclass layer archetype of '{agent_class_title}' fighting a specialized sector boss threat: '{action_data.enemy_name}'. "
+        f"They submitted this action context or academic verification strategy statement: '{action_data.action_submitted}'. "
+        f"Determine if they succeeded or failed. Provide a dramatic text battle output flavor text packed with high-tech cyberpunk terminology "
+        f"and conceptual elements relative to a {agent_class_title} combating a {action_data.enemy_name}. "
+        f"End your response with exactly: 'SCORE: <0 to 100>' indicating action efficacy."
     )
 
     try:
