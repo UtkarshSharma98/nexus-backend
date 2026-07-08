@@ -54,6 +54,8 @@ class PlayerStatsSchema(BaseModel):
         "brain_booster": 0,
         "streak_shield": 0
     }
+    # 🎓 Tracks the player's specialized academic/professional track
+    stream: str = "General Cybernetics"
 
 class CombatActionSchema(BaseModel):
     enemy_name: str
@@ -61,6 +63,9 @@ class CombatActionSchema(BaseModel):
 
 class StudyTopicSchema(BaseModel):
     topic: str
+
+class UpdateStreamSchema(BaseModel):
+    stream: str
 
 class EnergyPurchaseSchema(BaseModel):
     pack_id: str
@@ -134,9 +139,11 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             except Exception as time_err:
                 print(f"Time validation error: {time_err}")
         
-        # Ensure inventory structure exists on older profiles
+        # Ensure fallback structures exist on older profiles
         if "inventory" not in player_data:
             player_data["inventory"] = {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
+        if "stream" not in player_data:
+            player_data["stream"] = "General Cybernetics"
 
         # Sync calculated updates back to local object
         player_data["streak"] = current_streak
@@ -153,7 +160,8 @@ async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
             "avatar_icon": "fa-user-ninja",
             "theme_color": "#00f0ff",
             "last_login": current_time_str,
-            "inventory": {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0}
+            "inventory": {"memory_book": 0, "energy_drink": 1, "brain_booster": 0, "streak_shield": 0},
+            "stream": "General Cybernetics"
         }
         await doc_ref.set(default_stats)
         return default_stats
@@ -164,6 +172,17 @@ async def sync_player_stats(stats: PlayerStatsSchema, user: Annotated[dict, Depe
     doc_ref = db.collection("users").document(uid)
     await doc_ref.set(stats.model_dump(), merge=True)
     return {"message": "Cloud matrix profile written successfully."}
+
+@app.post("/api/player/update-stream")
+async def update_player_stream(
+    payload: UpdateStreamSchema,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    
+    await doc_ref.set({"stream": payload.stream}, merge=True)
+    return {"message": f"Core domain alignment altered to {payload.stream}."}
 
 @app.post("/api/combat/analyze")
 async def process_combat_encounter(
@@ -247,10 +266,14 @@ async def process_study_module(
     if not player_data.get("isPremium", False) and player_data.get("energy", 100) < 5:
         raise HTTPException(status_code=400, detail="Insufficient action energy to study.")
 
+    # Fetch player's current stream specialization context
+    player_stream = player_data.get("stream", "General Cybernetics")
+
     prompt_context = (
-        f"You are an expert retro cyberpunk AI mentor tutor. Explain the following study topic "
-        f"thoroughly but in an engaging, stylized way: '{payload.topic}'. "
-        f"Provide a clear breakdown of the concept and conclude with a quick 1-question check for understanding."
+        f"You are an expert retro cyberpunk AI mentor tutor specializing in the field of {player_stream}. "
+        f"Explain the following study topic thoroughly within the practical application context of {player_stream}: '{payload.topic}'. "
+        f"Provide a clear, engaging breakdown of the concept using real-world or theoretical domain problems, "
+        f"and conclude with a quick 1-question check for understanding."
     )
 
     try:
