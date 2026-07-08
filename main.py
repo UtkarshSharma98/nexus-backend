@@ -690,6 +690,107 @@ async def consume_backpack_item(
         "message": execution_message,
         "updated_player": player_data
     }
+    from pydantic import BaseModel
+
+class UnlockNodeSchema(BaseModel):
+    node_id: str
+
+# 🗺️ Structural Sector maps corresponding directly to your stream choices.
+# Each node acts as a gateway lock that requires a specific study target action.
+STREAM_SKILL_TREES = {
+    "NEET (Medical Entrance)": {
+        "sector_name": "Bio-Labs Nexus",
+        "nodes": {
+            "node_1": {"title": "Human Anatomy Cells", "type": "Core Core", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "Organic Reaction Mechanisms", "type": "Alchemical", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "Plant Physiology Matrix", "type": "Bio-Botany", "unlocked": False, "completed": False, "xp_reward": 900}
+        }
+    },
+    "BCA (Bachelor of Computer Applications)": {
+        "sector_name": "Data Grid Sector",
+        "nodes": {
+            "node_1": {"title": "Linear Data Structures", "type": "Sub-Routine", "unlocked": True, "completed": False, "xp_reward": 500},
+            "node_2": {"title": "OOPs Polymorphism Gates", "type": "Compiler", "unlocked": False, "completed": False, "xp_reward": 750},
+            "node_3": {"title": "OS Memory Allocation Pools", "type": "Kernel Layer", "unlocked": False, "completed": False, "xp_reward": 950}
+        }
+    },
+    "B.Tech (Bachelor of Technology)": {
+        "sector_name": "Silicon Foundry Matrix",
+        "nodes": {
+            "node_1": {"title": "Asymptotic Analysis", "type": "Algorithm Core", "unlocked": True, "completed": False, "xp_reward": 600},
+            "node_2": {"title": "Distributed Database Clusters", "type": "Data Mesh", "unlocked": False, "completed": False, "xp_reward": 800},
+            "node_3": {"title": "Network Socket Protocols", "type": "Cybercomms", "unlocked": False, "completed": False, "xp_reward": 1000}
+        }
+    },
+    "10th Standard (Boards Prep)": {
+        "sector_name": "The Alpha Outpost",
+        "nodes": {
+            "node_1": {"title": "Quadratic Equation Arrays", "type": "Algebra Core", "unlocked": True, "completed": False, "xp_reward": 400},
+            "node_2": {"title": "Chemical Redox Systems", "type": "Elemental Lab", "unlocked": False, "completed": False, "xp_reward": 600},
+            "node_3": {"title": "Grammar Syntactic Matrices", "type": "Linguistic Node", "unlocked": False, "completed": False, "xp_reward": 600}
+        }
+    }
+}
+@app.post("/api/skills/unlock-node")
+async def unlock_skill_tree_node(
+    payload: UnlockNodeSchema,
+    user: Annotated[dict, Depends(get_current_user)]
+):
+    uid = user["uid"]
+    doc_ref = db.collection("users").document(uid)
+    doc_snap = await doc_ref.get()
+    
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player entry dropped.")
+        
+    player_data = doc_snap.to_dict()
+    user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+    
+    # Safely pull the user's specific map blueprint matrix layout
+    if user_stream not in STREAM_SKILL_TREES:
+        raise HTTPException(status_code=400, detail="No sector maps mapped to this profile stream context.")
+        
+    # Get user's existing tree or instantiate a fresh instance copy layout state
+    user_tree = player_data.get("skill_tree", STREAM_SKILL_TREES[user_stream])
+    nodes = user_tree.get("nodes", {})
+    target_node = payload.node_id
+    
+    if target_node not in nodes:
+        raise HTTPException(status_code=404, detail="Target map node coordinate missing.")
+        
+    if not nodes[target_node]["unlocked"]:
+        raise HTTPException(status_code=400, detail="Target sequence gate locked by parent process conditions.")
+        
+    if nodes[target_node]["completed"]:
+        return {"message": "Node already fully synthesized.", "updated_player": player_data}
+        
+    # Complete current targeted node module index block
+    nodes[target_node]["completed"] = True
+    xp_earned = nodes[target_node]["xp_reward"]
+    
+    # Progression loop logic calculation: Unlock sequential numerical indices sequentially
+    current_index = int(target_node.split("_")[-1])
+    next_node_id = f"node_{current_index + 1}"
+    
+    if next_node_id in nodes:
+        nodes[next_node_id]["unlocked"] = True
+        
+    # Save mutated branches layout back to user's database document instance
+    player_data["skill_tree"] = user_tree
+    player_data["xp"] = player_data.get("xp", 0) + xp_earned
+    
+    # Level-up thresholds matching step checks
+    next_level_threshold = player_data.get("level", 1) * 1000
+    if player_data["xp"] >= next_level_threshold:
+        player_data["xp"] -= next_level_threshold
+        player_data["level"] = player_data.get("level", 1) + 1
+        
+    await doc_ref.set(player_data, merge=True)
+    return {
+        "message": f"Successfully completed {nodes[target_node]['title']} node block grid sector!",
+        "xp_earned": xp_earned,
+        "updated_player": player_data
+    }
 
 
 # 🛠️ DYNAMIC PORT ATTACHMENT ENGINE FOR RENDER
