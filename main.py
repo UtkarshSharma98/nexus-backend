@@ -284,6 +284,32 @@ class UnlockNodeSchema(BaseModel):
 class CompleteMissionSchema(BaseModel):
     mission_id: str
 
+class StudyMaterialRequestSchema(BaseModel):
+    node_id: str  # e.g., "node_1", "node_2" to pull the exact topic title
+
+class MCQOption(BaseModel):
+    key: str  # "A", "B", "C", "D"
+    text: str
+
+class MCQResponseSchema(BaseModel):
+    question: str
+    options: list[MCQOption]
+    correct_key: str
+    cyber_explanation: str
+
+class FlashcardResponseSchema(BaseModel):
+    front_prompt: str
+    back_codename: str
+    operational_summary: str
+
+class MemoryCardPair(BaseModel):
+    id: str
+    term: str
+    definition: str
+
+class MemoryCardResponseSchema(BaseModel):
+    pairs: list[MemoryCardPair]  # Generates matching pairs for a match game
+
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_placeholder")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "mock_secret_placeholder")
 client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -751,6 +777,127 @@ async def complete_mission(
         }
         
     return {"message": "Mission already cleared.", "updated_player": player_data}
+
+import json
+
+@app.post("/api/study/generate-mcq", response_model=MCQResponseSchema)
+async def generate_stream_mcq(payload: StudyMaterialRequestSchema, user: Annotated[dict, Depends(get_current_user)]):
+    uid = user["uid"]
+    doc_snap = await db.collection("users").document(uid).get()
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player entry dropped.")
+    
+    player_data = doc_snap.to_dict()
+    user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+    
+    # Extract the exact topic title from the user's active skill tree layout
+    lookup_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
+    nodes = STREAM_SKILL_TREES[lookup_stream].get("nodes", {})
+    topic_title = nodes.get(payload.node_id, {}).get("title", "Core System Core Operations")
+
+    prompt = (
+        f"You are a terminal matrix testing engine for a retro-cyberpunk educational game.\n"
+        f"Generate exactly one high-quality Multiple Choice Question (MCQ) suited specifically for the academic level of: '{user_stream}'.\n"
+        f"The question MUST focus directly on the concept: '{topic_title}'.\n\n"
+        f"Return ONLY a valid JSON object matching this schema exactly. Do not wrap in markdown block text format:\n"
+        f"{{\n"
+        f"  \"question\": \"Cyberpunk-themed core question text context here?\",\n"
+        f"  \"options\": [\n"
+        f"    {{\"key\": \"A\", \"text\": \"Option text\"}},\n"
+        f"    {{\"key\": \"B\", \"text\": \"Option text\"}},\n"
+        f"    {{\"key\": \"C\", \"text\": \"Option text\"}},\n"
+        f"    {{\"key\": \"D\", \"text\": \"Option text\"}}\n"
+        f"  ],\n"
+        f"  \"correct_key\": \"A\",\n"
+        f"  \"cyber_explanation\": \"Explanation written using data terminal flavor text jargon.\"\n"
+        f"}}"
+    )
+
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"MCQ Synthesis Error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to synthesize localized core MCQ.")
+
+
+@app.post("/api/study/generate-flashcard", response_model=FlashcardResponseSchema)
+async def generate_stream_flashcard(payload: StudyMaterialRequestSchema, user: Annotated[dict, Depends(get_current_user)]):
+    uid = user["uid"]
+    doc_snap = await db.collection("users").document(uid).get()
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player entry dropped.")
+    
+    player_data = doc_snap.to_dict()
+    user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+    
+    lookup_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
+    topic_title = STREAM_SKILL_TREES[lookup_stream].get("nodes", {}).get(payload.node_id, {}).get("title", "Core System Operations")
+
+    prompt = (
+        f"Create an educational flashcard for a student studying: '{user_stream}' targeting the specific concept: '{topic_title}'.\n"
+        f"Format your response strictly as raw JSON matching this structure exactly (no markdown formatting code blocks):\n"
+        f"{{\n"
+        f"  \"front_prompt\": \"The question, prompt, or technical problem printed on the front side\",\n"
+        f"  \"back_codename\": \"The exact answer, term, or core formula to memorize\",\n"
+        f"  \"operational_summary\": \"A highly actionable 2-sentence breakdown explaining the concept core logic.\"\n"
+        f"}}"
+    )
+
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Flashcard Synthesis Error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to generate targeted network flashcard.")
+
+
+@app.post("/api/study/generate-memory-cards", response_model=MemoryCardResponseSchema)
+async def generate_stream_memory_cards(payload: StudyMaterialRequestSchema, user: Annotated[dict, Depends(get_current_user)]):
+    uid = user["uid"]
+    doc_snap = await db.collection("users").document(uid).get()
+    if not doc_snap.exists:
+        raise HTTPException(status_code=404, detail="Player entry dropped.")
+    
+    player_data = doc_snap.to_dict()
+    user_stream = player_data.get("stream", "10th Standard (Boards Prep)")
+    
+    lookup_stream = user_stream if user_stream in STREAM_SKILL_TREES else "10th Standard (Boards Prep)"
+    topic_title = STREAM_SKILL_TREES[lookup_stream].get("nodes", {}).get(payload.node_id, {}).get("title", "Core System Operations")
+
+    prompt = (
+        f"Generate exactly 4 matching pairs of educational technical terms and definitions suitable for a memory/match card game.\n"
+        f"Academic Field/Stream: '{user_stream}'. Specific Sub-topic focus: '{topic_title}'.\n"
+        f"Ensure terms are brief formulas, vocabulary words, or components, and definitions are short and concrete.\n\n"
+        f"Return your response ONLY as a valid raw JSON object fitting this schema directly:\n"
+        f"{{\n"
+        f"  \"pairs\": [\n"
+        f"    {{\"id\": \"pair_1\", \"term\": \"Term A\", \"definition\": \"Definition Alpha\"}},\n"
+        f"    {{\"id\": \"pair_2\", \"term\": \"Term B\", \"definition\": \"Definition Beta\"}},\n"
+        f"    {{\"id\": \"pair_3\", \"term\": \"Term C\", \"definition\": \"Definition Gamma\"}},\n"
+        f"    {{\"id\": \"pair_4\", \"term\": \"Term D\", \"definition\": \"Definition Delta\"}}\n"
+        f"  ]\n"
+        f"}}"
+    )
+
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Memory Cards Grid Error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to construct localized match card grid matrix.")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
