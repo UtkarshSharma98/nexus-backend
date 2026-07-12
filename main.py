@@ -358,13 +358,10 @@ def verify_polar_webhook(raw_body: bytes, headers) -> dict:
     if not (webhook_id and webhook_timestamp and webhook_signature):
         raise PolarWebhookVerificationError("Missing required webhook signature headers.")
 
-    secret_raw = POLAR_WEBHOOK_SECRET
-    if secret_raw.startswith("whsec_"):
-        secret_raw = secret_raw[len("whsec_"):]
-    try:
-        secret_bytes = base64.b64decode(secret_raw)
-    except Exception:
-        secret_bytes = secret_raw.encode()
+    # Polar-specific quirk: unlike Svix/Clerk, Polar does NOT base64-decode
+    # the webhook secret before use. Use the full secret string (including
+    # any "whsec_" / "polar_whs_" prefix) as raw UTF-8 bytes for the HMAC key.
+    secret_bytes = POLAR_WEBHOOK_SECRET.encode("utf-8")
 
     signed_content = f"{webhook_id}.{webhook_timestamp}.{raw_body.decode('utf-8')}".encode("utf-8")
     expected_signature = base64.b64encode(
