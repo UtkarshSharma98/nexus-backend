@@ -738,11 +738,12 @@ async def create_order(payload: PurchaseSchema, user: Annotated[dict, Depends(ge
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    return {
-        "checkout_id": checkout_data.get("id"),
-        "checkout_url": checkout_data.get("url"),
-        "product_name": POLAR_ITEM_LABELS[item]
-    }
+    # Change this return block in main.py:
+return {
+    "checkout_id": checkout_data.get("id"),
+    "url": checkout_data.get("url"), # Renamed from 'checkout_url' to 'url'
+    "product_name": POLAR_ITEM_LABELS[item]
+}
 
 
 @app.post("/api/billing/webhook")
