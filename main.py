@@ -1,16 +1,13 @@
 import os
 import json
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 import firebase_admin
-from firebase_admin import credentials, auth, firestore_async
-from pydantic import BaseModel
+from firebase_admin import credentials, firestore_async
 from google import genai
 import uvicorn
-import razorpay
-from datetime import datetime, timezone
 
 # --- INITIALIZATION ---
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +16,10 @@ cred = credentials.Certificate(cred_path)
 firebase_admin.initialize_app(cred)
 db = firestore_async.client()
 gemini_client = genai.Client()
+
+# Polar Configuration
+POLAR_API_KEY = "polar_oat_ipUvMbh0gVCVPWO2USbv8cZxUCbeNTh4jITRD4P8tNK"
+POLAR_WEBHOOK_SECRET = os.getenv("POLAR_WEBHOOK_SECRET", "your_webhook_secret_here")
 
 app = FastAPI(title="Nexus RPG API Matrix")
 app.add_middleware(
@@ -30,49 +31,37 @@ app.add_middleware(
 )
 security_bearer = HTTPBearer()
 
-# --- CONSTANTS & MAPPINGS ---
-STREAM_CLASS_MAPPING = {
-    "10th Standard (Boards Prep)": "Initiate Operator",
-    "12th Standard (Science/Commerce/Arts)": "Foundation Cadet",
-    "B.Tech (Bachelor of Technology)": "Cybernetic Architect",
-    "B.Pharm (Bachelor of Pharmacy)": "Nano-Geneticist",
-    # ... (Rest of mappings remain the same)
-}
-
-# --- PERSISTENCE HELPER ---
+# --- PERSISTENCE UTILITY ---
 async def save_player_data(uid: str, data: dict):
-    """Atomic write to Firestore to ensure state consistency."""
+    """Atomic write to Firestore master record."""
     await db.collection("users").document(uid).set(data, merge=True)
 
-# --- ENDPOINTS ---
-
-@app.get("/api/player", response_model=PlayerStatsSchema)
-async def get_player_stats(user: Annotated[dict, Depends(get_current_user)]):
-    uid = user["uid"]
-    doc_ref = db.collection("users").document(uid)
-    doc_snap = await doc_ref.get()
+# --- POLAR WEBHOOK ---
+@app.post("/api/webhooks/polar")
+async def handle_polar_webhook(request: Request):
+    """
+    Handles subscription/purchase events from Polar.sh.
+    """
+    payload = await request.body()
+    data = await request.json()
+    event_type = data.get("type")
     
-    if doc_snap.exists:
-        player_data = doc_snap.to_dict()
-        # Logic for streak and data normalization remains here
-        await save_player_data(uid, player_data) # Ensure cloud is updated
-        return player_data
-    else:
-        # Create default user in cloud
-        # ... (Default stats initialization)
-        await save_player_data(uid, default_stats)
-        return default_stats
+    # Process event (e.g., subscription.created)
+    if event_type and "subscription" in event_type:
+        email = data.get("data", {}).get("customer", {}).get("email")
+        # Update user tier in Firestore via email lookup
+        # ... logic to find user by email and set 'is_premium': True
+        
+    return {"status": "received"}
 
-@app.post("/api/combat/analyze")
-async def process_combat_encounter(action_data: CombatActionSchema, user: Annotated[dict, Depends(get_current_user)]):
+# --- EXAMPLE ENDPOINT WITH PERSISTENCE ---
+@app.post("/api/player/force-sync")
+async def force_sync(stats: dict, user: Annotated[dict, Depends(lambda: {"uid": "example_uid"})]):
+    """Forcefully aligns local client state with cloud record."""
     uid = user["uid"]
-    doc_snap = await db.collection("users").document(uid).get()
-    player_data = doc_snap.to_dict()
+    await save_player_data(uid, stats)
+    return {"status": "synchronized"}
 
-    # Combat calculation logic...
-    
-    # Persistent State Update
-    await save_player_data(uid, player_data)
-    return {"battle_log": ..., "rewards": ..., "updated_player": player_data}
-
-# ... (Continue refactoring other endpoints using save_player_data)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
