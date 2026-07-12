@@ -692,7 +692,7 @@ async def get_friends_list(user: Annotated[dict, Depends(get_current_user)]):
     docs = await friends_ref.get()
     return [doc.to_dict() for doc in docs]
 
-@app.post("/api/billing/create-order")
+@app.post("/api/billing/create-checkout")
 async def create_order(payload: PurchaseSchema, user: Annotated[dict, Depends(get_current_user)]):
     """
     Creates a Polar.sh Checkout Session for the requested item and returns
