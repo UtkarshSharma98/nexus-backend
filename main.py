@@ -715,6 +715,13 @@ async def create_order(payload: PurchaseSchema, user: Annotated[dict, Depends(ge
         "product_id": product_id,
         "success_url": POLAR_SUCCESS_URL,
         "customer_external_id": user["uid"],
+        "customer_email": user.get("email"), # Recommended for better checkout experience
+        # ADD THIS BLOCK to satisfy the billing requirements
+        "customer_billing_address": {
+            "city": "Unknown", # You can update this to dynamic data if you collect it
+            "country": "IN",
+            "postal_code": "000000"
+        },
         "metadata": {
             "player_uid": user["uid"],
             "purchased_item": item
